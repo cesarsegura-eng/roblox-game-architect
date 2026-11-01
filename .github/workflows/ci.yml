@@ -21,7 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      # Pinned to the v10.3.2 commit. setup-uv publishes only exact version tags
+      # (there is no moving v10 tag), so `@v10` fails to resolve. Dependabot
+      # (github-actions ecosystem) will propose SHA bumps.
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
 
