@@ -1,0 +1,20 @@
+# Luau toolchain for apps/studio-plugin.
+#
+# Install with `rokit install`. The file is still named aftman.toml because
+# rokit reads foreman.toml / aftman.toml / rokit.toml interchangeably, and
+# because renaming it would mean writing a rokit.toml schema that nobody here
+# has been able to generate and verify yet. Run `rokit init` locally and
+# migrate the filename when you can check the result.
+#
+# aftman itself is no longer used: its repository (LPGhatguy/aftman) is
+# archived. rokit is maintained under the Rojo organisation and is drop-in
+# compatible, so this was a tool swap, not a format change.
+#
+# Versions verified against each project's latest GitHub release on 2026-11-01.
+# Pinned deliberately: an unpinned toolchain means a contributor's formatter
+# disagrees with CI and the diff fills with noise.
+
+[tools]
+rojo = "rojo-rbx/rojo@7.7.1"
+selene = "Kampfkarren/selene@0.32.0"
+stylua = "JohnnyMorganz/StyLua@2.6.0"

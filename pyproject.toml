@@ -1,0 +1,81 @@
+[build-system]
+# PEP 639 SPDX license expressions need setuptools 77+. No upper bound here on
+# purpose: the config form below is the current standard rather than a
+# deprecated one, so a newer setuptools is the safe direction.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roblox-game-architect"
+version = "0.0.0"
+description = "An AI system that designs, develops, tests and improves Roblox games."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Cesar Segura" }]
+dependencies = []
+
+# Ranges are bounded at the next breaking version. An unbounded range lets a
+# tool release turn CI red without anyone touching this repository; `uv.lock`
+# (see CONTRIBUTING.md) is what makes an install byte-for-byte reproducible.
+# Floors are the versions verified on 2026-11-01.
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.17.3,<0.18",   # pre-1.0: minor bumps add and remove lint rules
+  "pytest>=9.2,<10",
+  "pytest-env>=1.8.4,<2", # provides the [tool.pytest.ini_options] env setting
+]
+
+[project.urls]
+Homepage = "https://github.com/cesarsegura-eng/roblox-game-architect"
+Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
+
+# No Python packages exist yet (see the roadmap in README.md). This stays empty
+# on purpose so that `pip install -e ".[dev]"` works today and gives you the
+# tooling; package entries get added as packages/ gains real code.
+[tool.setuptools]
+packages = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["/data", "node_modules"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "S",    # bandit — security checks matter more than usual in this project
+  "ANN",  # missing annotations on public surfaces
+  "RUF",
+]
+# Nothing is ignored globally. ANN101/ANN102 used to be listed here; both were
+# removed in ruff 0.8.0, and selecting a removed rule is an error, so keeping
+# them would have failed `ruff check` on the first run.
+
+[tool.ruff.lint.per-file-ignores]
+# Assertions and hardcoded test values are the point of a test file.
+# "**/tests/**" alone covers both the root tests/ directory and
+# packages/*/tests/ (ADR-0001) — verified empirically, not assumed: a
+# duplicate "tests/**" entry was removed because it added no coverage.
+"**/tests/**" = ["S101", "ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "api", "protocol", "sandbox"]
+
+[tool.pytest.ini_options]
+# Unit tests live beside their package; tests/ holds integration and e2e
+# (ADR-0001). Both are collected here.
+testpaths = ["packages", "tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+  "integration: crosses a component boundary",
+  "e2e: drives the full agent loop",
+]
+# Every test must pass with the fake provider: no key, no network (invariant
+# I7). tests/test_scaffolding.py asserts this is actually in effect.
+env = ["LLM_PROVIDER=fake"]

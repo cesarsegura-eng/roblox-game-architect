@@ -1,0 +1,23 @@
+# The Roblox standard library is NOT bundled with selene: it is generated.
+# With `std = "roblox"` selene fetches and caches it automatically on first run
+# (refreshing every few hours), which means the lint step depends on network
+# access at the moment it runs.
+#
+# The CI workflow therefore generates it in an explicit step before linting, so
+# a generation failure is reported as a generation failure instead of as a
+# mysterious lint error.
+#
+# End state, pending someone running selene locally: set
+# `roblox-std-source = "pinned"` and commit the resulting `roblox.yml`, which
+# makes linting deterministic and offline. That is deliberately not set yet,
+# because the file it requires cannot be produced in this environment and a
+# config pointing at a missing file is worse than one that regenerates.
+std = "roblox"
+
+[rules]
+# The plugin is the most privileged component in the system, so lint findings
+# there are errors rather than suggestions (ADR-0005).
+incorrect_standard_library_use = "deny"
+undefined_variable = "deny"
+unused_variable = "warn"
+shadowing = "warn"

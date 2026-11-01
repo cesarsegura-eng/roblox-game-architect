@@ -1,0 +1,57 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a secret or advisory that lands between pushes is still caught.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # gitleaks needs history to scan commits, not just the tree.
+          fetch-depth: 0
+
+      # Pinned to the commit that v2 resolved to on 2026-11-01. This is the one
+      # third-party action in the repository that runs over the full history,
+      # so a moving tag here means a compromise of that action gets everything.
+      # Dependabot (github-actions ecosystem) will propose SHA bumps.
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check for Python source
+        id: check
+        run: |
+          if [ -n "$(git ls-files '*.py')" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No Python source yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: github/codeql-action/init@v4
+        if: steps.check.outputs.found == 'true'
+        with:
+          languages: python
+
+      - uses: github/codeql-action/analyze@v4
+        if: steps.check.outputs.found == 'true'

@@ -1,0 +1,35 @@
+# Normalise line endings. Without this, a Windows checkout commits CRLF and
+# `stylua --check` fails on finales de línea rather than on formatting — a CI
+# failure that costs hours to diagnose. `.editorconfig` declares eol=lf; this
+# file is what actually enforces it in git.
+* text=auto eol=lf
+
+# ---------- Roblox binaries ----------
+# Place and model files are true binary. They are gitignored as well
+# (ADR-0004); this is the second line of defence, so that if one is ever
+# force-added git never tries to diff or merge it.
+*.rbxl  binary
+*.rbxm  binary
+# .rbxlx / .rbxmx are XML, so they stay text. They are gitignored for size,
+# not for encoding.
+
+# ---------- Other binary assets ----------
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.mp3   binary
+*.ogg   binary
+*.wav   binary
+*.fbx   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+
+# ---------- Diff hints ----------
+*.md       diff=markdown
+*.py       diff=python
+uv.lock    linguist-generated=true -diff

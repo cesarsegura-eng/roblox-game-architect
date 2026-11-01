@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/cesarsegura-eng/roblox-game-architect/security/advisories/new
+    about: Report privately. Do not open a public issue — see SECURITY.md.
+  - name: Architecture question
+    url: https://github.com/cesarsegura-eng/roblox-game-architect/blob/main/docs/architecture/adr/README.md
+    about: The decisions and their reasoning are recorded as ADRs. Read these first.

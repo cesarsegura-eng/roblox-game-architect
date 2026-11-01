@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # pyproject.toml declares bounded ranges; Dependabot bumps the ranges here.
+  # It does NOT relax a ceiling on its own, so widening `<0.18` to `<0.19` is a
+  # deliberate human change — which is the point of having the ceiling.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Switch to this once uv.lock is committed (CONTRIBUTING.md), and remove the
+  # pip entry above so the lock stays the single source of truth. Dependabot
+  # supports the uv ecosystem; it is commented out rather than enabled because
+  # an ecosystem pointed at a lockfile that does not exist produces nothing.
+  # - package-ecosystem: uv
+  #   directory: "/"
+  #   schedule:
+  #     interval: weekly
+  #   commit-message:
+  #     prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+
+  # npm is added once apps/web has a package.json (the framework is an open
+  # decision — see ARCHITECTURE.md section 6).

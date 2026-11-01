@@ -1,20 +1,59 @@
-# Python
+# ---------- Python ----------
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
 
-# Secrets and environment variables
+# ---------- Secrets and environment variables ----------
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+secrets/
 
-# Node.js
+# ---------- Node.js ----------
 node_modules/
 dist/
+build/
 .next/
+.turbo/
+*.tsbuildinfo
 
-# IDE
+# ---------- Roblox / Luau ----------
+# Place files are binary and do not diff: never commit them.
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+*.rbxm
+*.rbxmx
+# Wally / Rojo artifacts.
+# Scoped to the plugin on purpose: a bare `Packages/` also matches our own
+# `packages/` tree on case-insensitive filesystems (Windows, macOS).
+apps/studio-plugin/Packages/
+apps/studio-plugin/ServerPackages/
+apps/studio-plugin/DevPackages/
+sourcemap.json
+
+# ---------- Generated projects and agent runtime data ----------
+# Games produced by the agent live outside version control (see ADR-0004).
+/data/
+*.log
+logs/
+
+# ---------- IDE / OS ----------
 .vscode/
 .idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

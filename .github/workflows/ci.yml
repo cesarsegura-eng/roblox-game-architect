@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel a run on main: that would leave a merged commit with no CI
+  # signal at all.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  python:
+    name: Python lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      # The next three steps are ordered deliberately. Checking the lock after
+      # installing would be worthless: an install that is allowed to resolve
+      # freely rewrites uv.lock first, so the check would inspect a file it had
+      # just repaired and always pass.
+      - name: Lockfile exists
+        run: |
+          if [ ! -f uv.lock ]; then
+            echo "::error file=uv.lock::uv.lock is missing. Run 'uv lock' and commit the result (see CONTRIBUTING.md). CI installs with --locked and cannot resolve dependencies on its own."
+            exit 1
+          fi
+
+      - name: Lockfile matches pyproject.toml
+        # Fails if the two have drifted. Reads only; resolves nothing.
+        run: uv lock --check
+
+      - name: Install
+        # --locked makes uv refuse to update the lockfile: if it is stale, this
+        # fails instead of silently resolving something else.
+        run: uv sync --locked --extra dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Tests
+        # No guard on the exit code. tests/test_scaffolding.py always collects,
+        # so exit code 5 ("no tests collected") means something is broken and
+        # must fail the build.
+        run: uv run pytest
+
+  luau:
+    name: Luau lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check for Luau source
+        id: check
+        run: |
+          if [ -n "$(find apps/studio-plugin/src -name '*.lua' -o -name '*.luau' 2>/dev/null)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No Luau source yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # rokit rather than aftman: the aftman repository is archived. rokit is
+      # drop-in and reads the existing aftman.toml (see that file's header).
+      - uses: CompeyDev/setup-rokit@v0.2.1
+        if: steps.check.outputs.found == 'true'
+
+      - name: Generate the Roblox standard library
+        # selene does not ship it; see selene.toml. Explicit step so a fetch
+        # failure is legible instead of surfacing as a lint error.
+        if: steps.check.outputs.found == 'true'
+        run: selene update-roblox-std
+
+      - name: Lint
+        if: steps.check.outputs.found == 'true'
+        run: selene apps/studio-plugin/src
+
+      - name: Format check
+        if: steps.check.outputs.found == 'true'
+        run: stylua --check apps/studio-plugin/src
+
+  hygiene:
+    name: Repository hygiene (current tree only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No Roblox binaries in the current tree
+        # Checks the tree, not the history: a binary committed and later deleted
+        # still weighs on the repository forever. Prevention, not forensics
+        # (ADR-0004).
+        run: |
+          if git ls-files | grep -Ei '\.(rbxl|rbxlx|rbxm|rbxmx)$'; then
+            echo "::error::Roblox binary files must not be committed. See ADR-0004."
+            exit 1
+          fi
+
+      - name: No .env in the current tree
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\..*' | grep -v '\.env\.example$'; then
+            echo "::error::Environment files must not be committed. See SECURITY.md."
+            exit 1
+          fi
