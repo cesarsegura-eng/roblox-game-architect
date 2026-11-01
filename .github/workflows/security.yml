@@ -25,7 +25,7 @@ jobs:
       # third-party action in the repository that runs over the full history,
       # so a moving tag here means a compromise of that action gets everything.
       # Dependabot (github-actions ecosystem) will propose SHA bumps.
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
