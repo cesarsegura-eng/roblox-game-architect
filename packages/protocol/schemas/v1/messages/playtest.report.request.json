@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/playtest.report.request.json",
+  "description": "Plugin to API. Output of a playtest. Output text is untrusted data.",
+  "type": "object",
+  "properties": {
+    "playtest_id": {
+      "$ref": "../common.json#/$defs/id"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "timed_out",
+        "aborted",
+        "failed_to_start"
+      ]
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3600000
+    },
+    "output": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/output_line"
+      }
+    },
+    "output_truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "playtest_id",
+    "outcome",
+    "duration_ms"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "output_line": {
+      "type": "object",
+      "properties": {
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warn",
+            "error"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "x-untrusted": true
+        }
+      },
+      "required": [
+        "t_ms",
+        "level",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

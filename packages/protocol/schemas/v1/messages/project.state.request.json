@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/project.state.request.json",
+  "description": "Plugin to API. A bounded snapshot of the open place. Absence of a path is evidence only where the snapshot covers it (docs/protocol/README.md).",
+  "type": "object",
+  "properties": {
+    "snapshot_id": {
+      "$ref": "../common.json#/$defs/id"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "session_start",
+        "after_action"
+      ]
+    },
+    "after_action_id": {
+      "$ref": "../common.json#/$defs/id"
+    },
+    "roots": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "../common.json#/$defs/service_name"
+      }
+    },
+    "complete_depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "reason",
+    "roots",
+    "complete_depth",
+    "truncated",
+    "entries"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "../common.json#/$defs/path"
+        },
+        "class_name": {
+          "$ref": "../common.json#/$defs/class_name"
+        },
+        "properties": {
+          "$ref": "#/$defs/entry_properties"
+        }
+      },
+      "required": [
+        "path",
+        "class_name"
+      ],
+      "additionalProperties": false
+    },
+    "entry_properties": {
+      "description": "The same allowlisted properties and value shapes as set_property.",
+      "type": "object",
+      "properties": {
+        "Anchored": {
+          "type": "boolean"
+        },
+        "CanCollide": {
+          "type": "boolean"
+        },
+        "Transparency": {
+          "$ref": "../common.json#/$defs/unit_interval"
+        },
+        "Size": {
+          "$ref": "../common.json#/$defs/vector3_size"
+        },
+        "Position": {
+          "$ref": "../common.json#/$defs/vector3_position"
+        },
+        "Color": {
+          "$ref": "../common.json#/$defs/color3"
+        },
+        "Material": {
+          "$ref": "../common.json#/$defs/material"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

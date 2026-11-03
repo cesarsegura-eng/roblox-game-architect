@@ -1,0 +1,36 @@
+{
+  "description": "An accepted hello must carry the new session_id.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "session.hello",
+    "message_id": "m-0002",
+    "correlation_id": "m-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "negotiated": {
+        "major": 1,
+        "minor": 0
+      },
+      "server": {
+        "version": "0.1.0"
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "",
+    "keyword": "oneOf",
+    "inner": {
+      "schema": "envelope.hello.response.json#/oneOf/0",
+      "instance": "",
+      "path": "",
+      "keyword": "required"
+    }
+  }
+}

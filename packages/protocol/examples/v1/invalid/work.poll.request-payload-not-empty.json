@@ -1,0 +1,23 @@
+{
+  "description": "Timeouts are not part of the protocol (ADR-0007).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "work.poll",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "wait_ms": 1
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload",
+    "keyword": "additionalProperties"
+  }
+}

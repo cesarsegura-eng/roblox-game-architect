@@ -1,0 +1,37 @@
+{
+  "description": "More than 1000 lines (generated).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "playtest.report",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "playtest_id": "p-1",
+      "outcome": "completed",
+      "duration_ms": 5,
+      "output": []
+    }
+  },
+  "generate": [
+    {
+      "at": "/payload/output",
+      "repeat": {
+        "t_ms": 1,
+        "level": "info",
+        "text": "line"
+      },
+      "count": 1001
+    }
+  ],
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/output",
+    "keyword": "maxItems"
+  }
+}

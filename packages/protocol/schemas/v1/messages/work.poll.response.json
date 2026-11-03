@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/work.poll.response.json",
+  "description": "API to plugin. work is absent when there is nothing to do yet; that is not an error and not a failure (ADR-0007). There is no null in this protocol.",
+  "type": "object",
+  "properties": {
+    "work": {
+      "oneOf": [
+        {
+          "$ref": "edit.action.json"
+        },
+        {
+          "$ref": "playtest.request.json"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

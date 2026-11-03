@@ -1,0 +1,60 @@
+{
+  "description": "A path of exactly 16 segments.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "s0"
+            ],
+            "extent": "subtree"
+          }
+        ],
+        "operations": [
+          {
+            "op": "delete_instance",
+            "op_id": "o1",
+            "target": {
+              "path": [
+                "s0",
+                "s1",
+                "s2",
+                "s3",
+                "s4",
+                "s5",
+                "s6",
+                "s7",
+                "s8",
+                "s9",
+                "s10",
+                "s11",
+                "s12",
+                "s13",
+                "s14",
+                "s15"
+              ],
+              "expect_class": "Folder"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

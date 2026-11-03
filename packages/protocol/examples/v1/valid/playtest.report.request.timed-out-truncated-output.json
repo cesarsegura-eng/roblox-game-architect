@@ -1,0 +1,30 @@
+{
+  "description": "A timed-out playtest with truncated output.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "playtest.report",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "playtest_id": "p-0002",
+      "outcome": "timed_out",
+      "duration_ms": 30000,
+      "output": [
+        {
+          "t_ms": 5,
+          "level": "warn",
+          "text": "still running"
+        }
+      ],
+      "output_truncated": true
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -6,8 +6,13 @@ and what always requires a human. It is the reference for
 [`SECURITY.md`](../SECURITY.md) and for the invariants in
 [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
-**Status: design.** Nothing here is enforced by code yet. It is written first so
-that the enforcement points exist in the design rather than being retrofitted.
+**Status: mostly design, with a few foundations implemented.** `packages/core`
+contains LLM framing and standalone iteration/spend guards, but no agent loop
+uses them. `packages/sandbox` contains only a syntax-only bridge to the pinned
+official Lute 1.0.0 parser. There is no CST policy analyzer, API allowlist, memory
+bound, complete Gate 1, approval gate, execution isolation or disposable-place
+mechanism, and no API service, Studio plugin or web application, so this document
+does not describe a working safety boundary.
 
 ## 1. Threat model
 
@@ -31,10 +36,17 @@ What we are defending against, in order of severity:
 ## 2. The execution boundary
 
 Generated Luau is to pass three gates before it affects anything the user cares
-about. **All three are planned; none exists.** `packages/sandbox` is the single
+about. **None is complete.** A syntax-only Lute bridge exists in
+`packages/sandbox`, but the Gate 1 policy is not implemented. `packages/sandbox` is the single
 authority for gates 1 and 3 — no other component validates, not even partially.
 
-### Gate 1 — static validation *(planned, not implemented)*
+### Gate 1 — static validation *(planned, incomplete; syntax bridge exists)*
+
+The official Lute 1.0.0 syntax bridge is implemented, as recorded in
+[`ADR-0014`](architecture/adr/0014-luau-source-analysis-with-lute.md). It only
+reports whether parsing succeeds. The CST analyzer, API allowlist, structural
+rules and memory limit are not implemented. This does not change the strict
+JSON parser decision in ADR-0009.
 
 To be performed by `packages/sandbox` before execution, never skippable:
 
@@ -79,11 +91,18 @@ The default is **propose and wait**, not **act and report**. Rationale is in
 | Modify the user's working place | **human approval** |
 | Delete or overwrite existing user content | **human approval, itemised** |
 | Change place or game settings | **human approval** |
+| Enable a script the agent created | **human action only — no protocol operation does it** (this does not mean generated code cannot run; see [ADR-0010](architecture/adr/0010-script-execution-reach-and-action-semantics.md), proposed) |
 | Publish to Roblox | **human action only — never the agent** |
 | Any network call from generated code | **denied** |
 
-Users may loosen the middle rows for a session. The last two rows are not
-configurable: they are invariants I5 and I2 in `ARCHITECTURE.md`.
+Users may loosen the three approval rows for a session. The last two rows are not
+configurable: they are invariants I5 and I2 in `ARCHITECTURE.md`. Enabling a
+script is not loosenable either, because no protocol operation expresses it (see
+[`docs/protocol/README.md`](protocol/README.md)); making it possible is a decision
+for a later ADR, not a setting. That the agent cannot enable a script is not a
+guarantee that code it wrote cannot run: a source edit to an enabled script, a
+module that running code requires, a moved script and a playtest of the working place
+are all paths the protocol does not close (ADR-0010).
 
 Every autonomous action is written to a local, human-readable run log. The
 ability to answer "what did it actually do?" after the fact is part of the
@@ -115,17 +134,23 @@ describes code that does not exist.
 - `.gitignore` excludes `.env`, `*.pem`, `*.key` and `secrets/`; CI runs a
   secret scanner on every push and pull request.
 
-## 6. Spend and iteration limits *(planned, not implemented)*
+## 6. Spend and iteration limits *(mechanisms implemented, not integrated)*
 
-Invariant I6. Configured in `.env`:
+Invariant I6. `packages/core/budget.py` contains `IterationBudget`,
+`SpendBudget` and `BudgetedLLMProvider`. They are library mechanisms only: no
+agent loop exists to call them, and there are no real LLM adapters. The
+`.env.example` file is not loaded automatically; the `from_env()` methods read
+the process environment when called.
 
 - `AGENT_MAX_ITERATIONS` — hard stop on the improve loop.
 - `AGENT_MAX_USD_PER_SESSION` — hard stop on spend.
 
-Both are enforced in `packages/core`, not in the UI, so a different front end
-cannot bypass them. Estimated cost is shown before a run starts. The default
-provider is `fake`, which costs nothing: a fresh clone cannot generate a bill by
-accident.
+The spend wrapper refuses a paid call before `generate()` if the adapter cannot
+provide a maximum-cost quote or the quote does not fit the remaining budget.
+That quote is an adapter promise; if an adapter under-quotes or misreports the
+actual charge, the overspend can only be detected after the call. No real
+adapter exists to provide or verify such a quote, and estimated cost is not yet
+shown before a run. The default `fake` provider costs zero.
 
 ## 7. Platform policy
 
@@ -141,12 +166,22 @@ Honest list, to be closed as the implementation lands:
 
 - The API allowlist does not exist yet.
 - There is no run log yet.
-- Static validation of Luau has no implementation; the choice of parser is open.
+- The Lute 1.0.0 syntax bridge exists, but the analyzer and API allowlist do not.
+  It bounds source size and wall time; process memory is not bounded, so this is
+  not yet a complete Gate 1.
+- A generated `Script` or `LocalScript` is meant to be created disabled and to stay
+  so until a human enables it in Studio. That is a requirement on a plugin that does
+  not exist, and it is not a guarantee that generated code cannot run (ADR-0010,
+  proposed). How generated code is to run without touching the working place is
+  undecided and has to be settled before the stage 4 slice; it needs its own ADR and
+  an approval bound to the reviewed source.
 - "Disposable test place" has no mechanism yet — how the plugin creates and
   tears one down is undesigned.
-- Nothing in sections 2, 3, 4 or 6 is enforced by code. The only automated check
-  in the repository related to this document is that the test suite runs with
-  `LLM_PROVIDER=fake`.
+- No approval gate, complete Gate 1 validator, execution isolation or run log is
+  enforced by code; only the syntax-only Lute bridge exists in
+  `packages/sandbox`. The core has trusted/untrusted LLM request framing and
+  standalone budget mechanisms, but no loop uses them and no Studio behavior
+  has been exercised. The test suite is configured to use `LLM_PROVIDER=fake`.
 
 The first two are on the critical path for the stage 4 vertical slice: without a
 validator there is no gate 1, and without gate 1 nothing generated may run.

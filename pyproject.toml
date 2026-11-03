@@ -25,17 +25,26 @@ dev = [
   "ruff>=0.17.3,<0.18",   # pre-1.0: minor bumps add and remove lint rules
   "pytest>=9.2,<10",
   "pytest-env>=1.8.4,<2", # provides the [tool.pytest.ini_options] env setting
+  "jsonschema>=4.26,<5",  # validates packages/protocol schemas (Draft 2020-12); tests only
 ]
 
 [project.urls]
 Homepage = "https://github.com/cesarsegura-eng/roblox-game-architect"
 Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
 
-# No Python packages exist yet (see the roadmap in README.md). This stays empty
-# on purpose so that `pip install -e ".[dev]"` works today and gives you the
-# tooling; package entries get added as packages/ gains real code.
+# The importable packages live under packages/ (ADR-0001), not at the repo root,
+# so each one is mapped explicitly. Tests sit beside the code but are not
+# listed, so they are never installed as a package. Add entries here as
+# packages/ gains real code.
 [tool.setuptools]
-packages = []
+packages = ["core", "core.llm", "sandbox"]
+
+[tool.setuptools.package-dir]
+core = "packages/core"
+sandbox = "packages/sandbox"
+
+[tool.setuptools.package-data]
+sandbox = ["lute/*.luau"]
 
 [tool.ruff]
 line-length = 100

@@ -1,9 +1,17 @@
 # Architecture
 
 This document describes the intended shape of Roblox Game Architect and the
-invariants that shape it. **None of it is implemented yet** — it is the
-agreement we are building against, written down before the first line of engine
-code so that the expensive decisions are made deliberately.
+invariants that shape it. **Foundations now exist in `packages/protocol` and
+`packages/core`: protocol schemas and conformance tests; the `LLMProvider`
+interface, trusted/untrusted request framing, deterministic fake, and standalone
+iteration/spend guards.** The guards are not integrated into an agent loop;
+there is no end-to-end generation or execution. `packages/sandbox` contains only
+a syntax-only bridge to the owner-selected official Lute 1.0.0 parser
+([ADR-0014](docs/architecture/adr/0014-luau-source-analysis-with-lute.md)); the
+API, the sandbox's policy analysis and execution boundary, the Studio plugin and
+the web application are not implemented yet. The design remains the agreement
+we are building against, written down so that the expensive decisions are made
+deliberately.
 
 Individual decisions and their rationale are in
 [`docs/architecture/adr/`](docs/architecture/adr/). This document is the map;
@@ -77,10 +85,12 @@ talks to an LLM provider over the network
 ### `packages/protocol` — the contract
 
 Versioned JSON Schema definitions for every message that crosses the
-Python/Luau boundary: edit actions, test reports, project state, approval
-requests. This is a package rather than a folder because a contract between two
-languages needs an owner and a version
-([ADR-0006](docs/architecture/adr/0006-protocol-single-source-of-truth.md)).
+Python/Luau boundary: the handshake, edit actions and their results, project
+state and playtest reports. (Messages from the API to the web application —
+approval requests and the run log — are not part of v1.) This is a package rather
+than a folder because a contract between two languages needs an owner and a
+version ([ADR-0006](docs/architecture/adr/0006-protocol-single-source-of-truth.md)).
+Version 1.0 is written; see [`docs/protocol/README.md`](docs/protocol/README.md).
 
 ### `packages/sandbox` — the boundary
 
@@ -89,6 +99,13 @@ controlled execution in a disposable place. It is a package of its own so that
 the security boundary has a name in the file tree: a boundary nobody can point
 at is a boundary nobody reviews
 ([ADR-0002](docs/architecture/adr/0002-execution-boundary-and-autonomy.md)).
+
+**Current status: a syntax-only bridge.** The package contains `LuteSyntaxParser`,
+which reports whether Luau source parses, using the official Lute parser pinned
+to exactly 1.0.0 ([ADR-0014](docs/architecture/adr/0014-luau-source-analysis-with-lute.md)).
+It fails closed and bounds source size and wall time. There is no CST policy
+analyzer, API allowlist, memory bound, complete Gate 1, execution isolation or
+disposable-place mechanism, and a successful parse authorises nothing.
 
 **This package is the single authority on validation.** No other component
 validates generated code, not even partially: `packages/core` calls into it and
@@ -112,10 +129,11 @@ the agent proposes.
 These are not preferences. A change that breaks one of them is a breaking
 change and needs an ADR that supersedes the relevant decision.
 
-**None of them is enforced by code yet** — I7 is the only one with any
-automated check behind it today (`tests/test_scaffolding.py` asserts the fake
-provider is in effect). Read the table as the contract the implementation must
-satisfy, not as a description of current behaviour.
+These remain architecture goals and are not generally enforced by the product.
+I6 has unit-tested budget mechanisms but no agent loop integrates them; I7 has a
+deterministic fake provider and a repository check that verifies it is selected
+in tests (`tests/test_scaffolding.py`). Read the table as the contract the
+implementation must satisfy, not as a description of end-to-end behaviour.
 
 | # | Invariant | Why |
 |---|---|---|
@@ -164,7 +182,11 @@ All of it runs against the `fake` provider by default (I7, and
 Named here so they are not mistaken for oversights:
 
 - The web framework for `apps/web`.
-- The persistence engine behind `DATA_DIR`.
+- The persistence engine behind `DATA_DIR`. It is still open, but it now has
+  requirements it must meet: [ADR-0011](docs/architecture/adr/0011-delivery-execution-and-recovery.md)
+  needs the state `delivered` persisted *before* the response carrying a work item
+  leaves, and an accepted result and its idempotency record durably committed
+  *before* `ok` is emitted.
 - Multi-user and hosted deployment. The current design assumes a local,
   single-user service.
 
@@ -173,12 +195,35 @@ open question: Luau has no WebSocket client and a plugin cannot accept inbound
 connections, so the channel is plugin-initiated HTTP with long-polling for
 results. See [ADR-0007](docs/architecture/adr/0007-plugin-initiated-http-transport.md).
 
-Two decisions that look open but are on the critical path, and should be settled
-in stage 2 rather than drifting:
+Two decisions that were on the critical path are settled by stage 2:
 
-- **The shape of `edit.action`** (flat operation list vs instance tree). It
-  determines how precisely the blast-radius check can be expressed, so it is a
-  safety decision, not an ergonomic one.
-- **How the Luau side validates messages**, given that Luau has no mature JSON
-  Schema validator. Without an answer, ADR-0006's "both sides validate" is not
-  real.
+- **The shape of `edit.action`** is a flat list of primitive operations, with the
+  property allowlist in the schema itself
+  ([ADR-0008](docs/architecture/adr/0008-edit-action-flat-operations.md)).
+- **How the Luau side validates messages** is a closed subset of JSON Schema and
+  one strict JSON profile, with a hand-written Luau parser
+  ([ADR-0009](docs/architecture/adr/0009-luau-validation-subset-and-strict-json.md)).
+  The parser and validator are **not written**: Luau conformance is specified, not
+  verified.
+
+Still open on the protocol side, and named so they are not mistaken for
+oversights: how generated code can run without touching the user's working place
+(no protocol operation enables a script, which is not a guarantee that generated
+code cannot run; see
+[ADR-0010](docs/architecture/adr/0010-script-execution-reach-and-action-semantics.md)),
+and whether snapshots can be requested by scope.
+
+Five further records are proposed. ADR-0011's changes to the wire are applied and
+the rest of it is not; ADR-0014 has only its syntax-only bridge; the other three are
+not implemented at all:
+[ADR-0010](docs/architecture/adr/0010-script-execution-reach-and-action-semantics.md)
+(script execution reach and action semantics),
+[ADR-0011](docs/architecture/adr/0011-delivery-execution-and-recovery.md)
+(delivery, execution and recovery),
+[ADR-0012](docs/architecture/adr/0012-untrusted-text-and-unicode-rendering.md)
+(untrusted text),
+[ADR-0013](docs/architecture/adr/0013-conformance-suites.md) (conformance suites)
+and
+[ADR-0014](docs/architecture/adr/0014-luau-source-analysis-with-lute.md) (the
+official Lute parser for Luau source analysis; implemented so far only as a
+syntax-only bridge, with no CST policy analyzer, API allowlist or memory bound).

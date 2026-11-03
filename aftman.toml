@@ -10,11 +10,11 @@
 # archived. rokit is maintained under the Rojo organisation and is drop-in
 # compatible, so this was a tool swap, not a format change.
 #
-# Versions verified against each project's latest GitHub release on 2026-11-01.
-# Pinned deliberately: an unpinned toolchain means a contributor's formatter
-# disagrees with CI and the diff fills with noise.
+# Tool versions are exact so local checks and CI use the same tools. Lute is
+# pinned to stable 1.0.0 for the sandbox parser (ADR-0014), not a moving nightly.
 
 [tools]
 rojo = "rojo-rbx/rojo@7.7.1"
 selene = "Kampfkarren/selene@0.32.0"
 stylua = "JohnnyMorganz/StyLua@2.6.0"
+lute = "luau-lang/lute@1.0.0"

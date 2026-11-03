@@ -1,0 +1,20 @@
+{
+  "description": "Only session.hello may omit session_id.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "work.poll",
+    "message_id": "m-0100",
+    "sent_at": 1730000000000,
+    "payload": {}
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "",
+    "keyword": "required"
+  }
+}

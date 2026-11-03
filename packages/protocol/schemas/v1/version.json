@@ -1,0 +1,11 @@
+{
+  "major": 1,
+  "minor": 0,
+  "types": [
+    "session.hello",
+    "work.poll",
+    "project.state",
+    "edit.result",
+    "playtest.report"
+  ]
+}

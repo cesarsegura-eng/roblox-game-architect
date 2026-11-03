@@ -3,8 +3,30 @@
 Static validation of generated Luau, and controlled execution in a disposable
 place. This is the security boundary of the whole system.
 
-**Status: not implemented.** The full design, including the gaps, is in
-[`docs/safety.md`](../../docs/safety.md).
+**Status: partial foundation.** `LuteSyntaxParser` parses source syntax with
+the owner-selected official Lute parser, pinned to exactly 1.0.0
+([`ADR-0014`](../../docs/architecture/adr/0014-luau-source-analysis-with-lute.md)).
+This is all that exists here: there is no CST policy analyzer, API allowlist,
+memory bound, complete Gate 1, execution isolation or disposable-place mechanism,
+so it cannot authorize generated code to run. The full design and remaining gaps
+are in [`docs/safety.md`](../../docs/safety.md).
+
+## Running the tests
+
+The standard suite needs only Python and uv, and works without Lute:
+
+```bash
+uv sync --locked --extra dev && uv run pytest
+```
+
+It exercises the bridge's fail-closed handling against a mocked Lute process. The
+one test that runs the real parser is skipped when `lute` is not on `PATH`. To run
+it, install the pinned runtime with rokit, then select the integration test:
+
+```bash
+rokit install
+uv run pytest -m integration packages/sandbox/tests/test_lute_integration.py
+```
 
 ## Why this is a package and not a module
 
@@ -18,9 +40,12 @@ No other component decides whether generated code may run. `packages/core`
 produces code and asks here for a verdict; it implements no checks of its own.
 A boundary with two owners has none.
 
-## Gate 1 — static validation *(planned, not implemented)*
+## Gate 1 — static validation *(not implemented; syntax bridge exists)*
 
-Will run before any execution. Not skippable, not overridable by the user.
+Will run before any execution. Not skippable, not overridable by the user. The
+syntax bridge uses the official Lute parser at exact version 1.0.0; the API
+allowlist and structural policy checks are not implemented. See
+[`ADR-0014`](../../docs/architecture/adr/0014-luau-source-analysis-with-lute.md).
 
 - **API allowlist**, kept as a version-controlled file so changing it is a
   reviewable diff. Denied by default: `HttpService`, `DataStoreService`,
@@ -48,6 +73,8 @@ agent as data.
 Carried here from `docs/safety.md` so they are visible at the boundary itself:
 
 - The API allowlist does not exist yet.
-- Luau static validation has no implementation; the parser choice is open.
+- The syntax bridge is implemented, but no CST analyzer or API allowlist exists.
+  It bounds input length and wall time, but not process memory; it is not a
+  security gate.
 - "Disposable test place" has no mechanism — how the plugin creates and tears
   one down is undesigned.

@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/common.json",
+  "description": "Definitions shared by the envelopes and the message payloads.",
+  "$defs": {
+    "id": {
+      "description": "Opaque sender-chosen identifier. UUIDs are recommended; no format is enforced because Luau has no regular expressions.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "timestamp_ms": {
+      "description": "Unix time in milliseconds. Informational only.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "protocol_version": {
+      "description": "Version carried by every message after the handshake: the negotiated one.",
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "const": 1
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "hello_protocol_version": {
+      "description": "Framing version of session.hello. Frozen at 1.0 forever (ADR-0009).",
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "const": 1
+        },
+        "minor": {
+          "type": "integer",
+          "const": 0
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "version_range": {
+      "description": "A major version and the highest minor of it that a party supports.",
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "max_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "major",
+        "max_minor"
+      ],
+      "additionalProperties": false
+    },
+    "negotiated_version": {
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "segment": {
+      "description": "One instance name. 100 characters is the documented Roblox limit for Instance.Name; the minimum of 1 is stricter than Roblox.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "x-untrusted": true
+    },
+    "path": {
+      "description": "Absolute path from a DataModel service. Never a string with separators: instance names may contain any character.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/segment"
+      }
+    },
+    "class_name": {
+      "description": "A Roblox ClassName.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "service_name": {
+      "description": "A DataModel service name.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "creatable_class": {
+      "type": "string",
+      "enum": [
+        "Folder",
+        "Model",
+        "Part",
+        "WedgePart",
+        "Script",
+        "ModuleScript",
+        "LocalScript"
+      ]
+    },
+    "script_class": {
+      "type": "string",
+      "enum": [
+        "Script",
+        "LocalScript",
+        "ModuleScript"
+      ]
+    },
+    "part_class": {
+      "type": "string",
+      "enum": [
+        "Part",
+        "WedgePart"
+      ]
+    },
+    "instance_ref": {
+      "description": "An existing instance and the exact ClassName the sender expects it to have. This detects drift; it does not prove identity (docs/protocol/README.md).",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "expect_class": {
+          "$ref": "#/$defs/class_name"
+        }
+      },
+      "required": [
+        "path",
+        "expect_class"
+      ],
+      "additionalProperties": false
+    },
+    "extent": {
+      "type": "string",
+      "enum": [
+        "self",
+        "subtree"
+      ]
+    },
+    "scope_entry": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "extent": {
+          "$ref": "#/$defs/extent"
+        }
+      },
+      "required": [
+        "path",
+        "extent"
+      ],
+      "additionalProperties": false
+    },
+    "unit_interval": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "vector3_size": {
+      "description": "Conservative protocol bounds, not Roblox's: Roblox documents 0.001 to 2048.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 2048
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 2048
+        },
+        "z": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 2048
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false
+    },
+    "vector3_position": {
+      "description": "Protocol cap, not a Roblox limit.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "z": {
+          "type": "number",
+          "minimum": -100000,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false
+    },
+    "color3": {
+      "description": "Normalised channels, equivalent to Color3.new. No 0-255 form, no HDR.",
+      "type": "object",
+      "properties": {
+        "r": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "g": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "b": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "r",
+        "g",
+        "b"
+      ],
+      "additionalProperties": false
+    },
+    "material": {
+      "description": "An Enum.Material item by name.",
+      "type": "object",
+      "properties": {
+        "enum": {
+          "type": "string",
+          "const": "Material"
+        },
+        "item": {
+          "type": "string",
+          "enum": [
+            "Plastic",
+            "SmoothPlastic",
+            "Wood",
+            "WoodPlanks",
+            "Metal",
+            "Concrete",
+            "Brick",
+            "Glass",
+            "Neon",
+            "Grass",
+            "Sand",
+            "Fabric"
+          ]
+        }
+      },
+      "required": [
+        "enum",
+        "item"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

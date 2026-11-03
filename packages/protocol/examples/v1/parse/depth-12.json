@@ -1,0 +1,8 @@
+{
+  "description": "Nesting depth 12 is the limit and is allowed.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"m-0100\",\"session_id\":\"s-0001\",\"sent_at\":1730000000000,\"payload\":{\"a\":[[[[[[[[[[]]]]]]]]]]}}",
+  "expect": {
+    "valid": true,
+    "stage": "parse"
+  }
+}

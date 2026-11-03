@@ -1,0 +1,31 @@
+{
+  "description": "The plugin cannot tell what happened (for example after a crash). Final in the protocol.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.result",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "action_id": "a-0001",
+      "outcome": "indeterminate",
+      "operations": [
+        {
+          "op_id": "o1",
+          "status": "unknown"
+        },
+        {
+          "op_id": "o2",
+          "status": "unknown"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -57,3 +57,6 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local Claude Code worktrees, not project artifacts
+.claude/worktrees/

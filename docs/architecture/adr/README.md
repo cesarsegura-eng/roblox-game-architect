@@ -54,3 +54,10 @@ What else was on the table, and why it lost.
 | [0005](0005-credentials-and-thin-plugin.md) | Credentials stay server-side; the plugin is thin | Accepted |
 | [0006](0006-protocol-single-source-of-truth.md) | The protocol is a versioned package | Accepted (amended by 0007) |
 | [0007](0007-plugin-initiated-http-transport.md) | Plugin-initiated HTTP with long-polling | Accepted |
+| [0008](0008-edit-action-flat-operations.md) | `edit.action` is a flat list of primitive operations | Accepted (amended by 0010, proposed) |
+| [0009](0009-luau-validation-subset-and-strict-json.md) | Both sides validate: a closed schema subset and a strict JSON profile | Accepted (amended by 0012 and 0013, proposed) |
+| [0010](0010-script-execution-reach-and-action-semantics.md) | Script execution reach and action semantics | Proposed |
+| [0011](0011-delivery-execution-and-recovery.md) | Delivery, execution, idempotency and recovery | Proposed |
+| [0012](0012-untrusted-text-and-unicode-rendering.md) | Untrusted text: lossless on the wire, exact in storage, escaped for display | Proposed |
+| [0013](0013-conformance-suites.md) | Conformance suites as the shared contract | Proposed |
+| [0014](0014-luau-source-analysis-with-lute.md) | Official Lute parser for Luau source analysis | Proposed |

@@ -1,0 +1,21 @@
+{
+  "description": "A major version this schema set does not describe.",
+  "message": {
+    "protocol_version": {
+      "major": 2,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "work.poll",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {}
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "/protocol_version/major",
+    "keyword": "const"
+  }
+}

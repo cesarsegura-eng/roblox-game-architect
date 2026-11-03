@@ -1,0 +1,40 @@
+{
+  "description": "Snapshot properties are the allowlisted ones only.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "s1",
+      "reason": "session_start",
+      "roots": [
+        "Workspace"
+      ],
+      "complete_depth": 2,
+      "truncated": false,
+      "entries": [
+        {
+          "path": [
+            "Workspace"
+          ],
+          "class_name": "Workspace",
+          "properties": {
+            "Name": "x"
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/entries/0/properties",
+    "keyword": "additionalProperties"
+  }
+}

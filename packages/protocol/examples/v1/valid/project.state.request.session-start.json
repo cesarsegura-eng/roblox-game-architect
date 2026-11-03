@@ -1,0 +1,73 @@
+{
+  "description": "A complete snapshot sent right after the hello response.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "snap-0001",
+      "reason": "session_start",
+      "roots": [
+        "Workspace",
+        "ServerScriptService"
+      ],
+      "complete_depth": 3,
+      "truncated": false,
+      "entries": [
+        {
+          "path": [
+            "Workspace"
+          ],
+          "class_name": "Workspace"
+        },
+        {
+          "path": [
+            "Workspace",
+            "Map"
+          ],
+          "class_name": "Folder"
+        },
+        {
+          "path": [
+            "Workspace",
+            "Map",
+            "Block"
+          ],
+          "class_name": "Part",
+          "properties": {
+            "Anchored": true,
+            "Size": {
+              "x": 4,
+              "y": 1,
+              "z": 2
+            },
+            "Color": {
+              "r": 1,
+              "g": 0.5,
+              "b": 0
+            },
+            "Material": {
+              "enum": "Material",
+              "item": "Plastic"
+            }
+          }
+        },
+        {
+          "path": [
+            "ServerScriptService"
+          ],
+          "class_name": "ServerScriptService"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

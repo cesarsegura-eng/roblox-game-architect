@@ -1,0 +1,21 @@
+{
+  "description": "Unparseable input: no correlation_id and no session_id are possible.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "message_id": "m-0102",
+    "status": "error",
+    "sent_at": 1730000000100,
+    "payload": {
+      "code": "invalid_message",
+      "message": "The message could not be parsed.",
+      "retryable": false
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

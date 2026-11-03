@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/error.operation.json",
+  "description": "Error of one operation, reported inside edit.result.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "target_not_found",
+        "parent_not_found",
+        "ambiguous_target",
+        "class_mismatch",
+        "name_conflict",
+        "invalid_reparent",
+        "property_unavailable",
+        "operation_failed"
+      ]
+    },
+    "message": {
+      "description": "Fixed-template text; same rules as error.protocol.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "details": {
+      "description": "Closed.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "common.json#/$defs/path"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "code",
+    "message"
+  ],
+  "additionalProperties": false
+}

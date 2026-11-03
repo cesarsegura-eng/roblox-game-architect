@@ -1,0 +1,22 @@
+{
+  "description": "Typed responses carry the session.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {}
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "",
+    "keyword": "required"
+  }
+}

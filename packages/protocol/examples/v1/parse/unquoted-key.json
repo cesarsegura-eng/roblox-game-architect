@@ -1,0 +1,9 @@
+{
+  "description": "Keys are quoted.",
+  "message_raw": "{kind:\"request\"}",
+  "expect": {
+    "valid": false,
+    "stage": "parse",
+    "reason": "invalid_json"
+  }
+}

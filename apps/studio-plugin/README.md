@@ -39,7 +39,7 @@ the three operations above.
 | TestEZ | Luau unit tests, in `tests/` |
 
 Versions are pinned in [`aftman.toml`](../../aftman.toml) at the repository
-root. Install them with `aftman install`.
+root. Install them with `rokit install`.
 
 ## Layout
 

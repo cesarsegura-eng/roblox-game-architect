@@ -1,0 +1,8 @@
+{
+  "description": "Underflows to 0.0, which is finite.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"m-0100\",\"session_id\":\"s-0001\",\"sent_at\":1e-999,\"payload\":{}}",
+  "expect": {
+    "valid": true,
+    "stage": "parse"
+  }
+}

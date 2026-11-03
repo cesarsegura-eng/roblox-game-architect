@@ -30,6 +30,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `LLM_PROVIDER=fake` is in effect (invariant I7). It replaces a CI guard that
   let the test step pass while collecting nothing.
 - ADR-0007: plugin-initiated HTTP with long-polling, amending ADR-0006.
+- `packages/protocol` version 1.0: JSON Schema (Draft 2020-12) for the handshake,
+  `work.poll`, `project.state`, `edit.action`/`edit.result`, `playtest.request`/
+  `playtest.report` and the two error taxonomies; 20 schema files and
+  `schemas/v1/version.json`.
+- `packages/protocol/examples/v1/`: 240 conformance vectors (50 valid, 148 invalid,
+  42 for the strict JSON profile) and `index.json`.
+- `packages/protocol/tests/`: schema, subset-audit, strict-JSON and semantic tests
+  (reference checks for scope and ordering, test-only).
+- ADR-0008 (`edit.action` as a flat list of primitive operations, the property
+  allowlist in the schema, script creation) and ADR-0009 (a closed schema subset and
+  a strict JSON profile for validation on both sides).
+- ADR-0010 to ADR-0013 (proposed): script execution reach and action semantics;
+  delivery, execution, idempotency and recovery; untrusted text and Unicode
+  rendering; conformance suites. ADR-0008 and ADR-0009 record that they are amended
+  by them. ADR-0010, ADR-0012 and ADR-0013 remain documentation only; the changes
+  ADR-0011 makes to the wire are applied (see *Changed*), while its state machines,
+  lock and records have no schema and are not implemented.
+- `docs/protocol/README.md` rewritten as the specification of version 1.0.
+- `jsonschema` (4.26.0) in the `dev` extra, with its five transitive dependencies,
+  to validate the protocol schemas in tests.
+- `packages/core`: the `LLMProvider` contract, trusted/untrusted prompt framing,
+  deterministic fake provider, `IterationBudget`, and `SpendBudget` /
+  `BudgetedLLMProvider`, with unit tests. These are foundations only; there is no
+  agent loop or paid provider adapter.
+- ADR-0014: owner-selected official Lute parser for Luau source analysis, pinned
+  to stable 1.0.0; a syntax-only bridge and integration smoke test are present.
+  The security policy analyzer and memory limit are not implemented.
+- `packages/protocol`: the protocol error code `result_conflict`, answered when a
+  result differs from the one already recorded for a work item, and two conformance
+  vectors for it and for the mixed form of `indeterminate`
+  (`edit.result.response.error-result-conflict.json`,
+  `edit.result.request.indeterminate-partial-knowledge.json`). 52 valid vectors.
 
 ### Changed
 
@@ -49,6 +81,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   heading, not only in a status line at the top of the document.
 - `README.md` no longer describes the engine or the test suite as existing, and
   the roadmap distinguishes written, verified and planned.
+- `docs/safety.md` records that protocol v1 cannot activate a script: generated
+  scripts are created disabled and a human enables them.
+- **Breaking (pre-1.0 protocol):** the protocol error code `unknown_action` is
+  renamed `unknown_work`, and is now answered for any work item — an action or a
+  playtest — whose state does not accept a result (ADR-0011, RD5). Renaming a member
+  of a closed enum is admissible only because the tag `protocol-v1.0` does not exist
+  yet; after it, this would be a major bump.
+- `indeterminate` now means **at least one** operation is `unknown`, with the applied
+  operations before it and the skipped ones after, instead of requiring every
+  operation to be `unknown` (ADR-0011 section 9). The reference check and its tests
+  follow: the order an action is reported in ranks `failed` and `unknown` together,
+  between `applied` and `skipped`, and the per-outcome status sets keep the two from
+  sharing a result. The schema is unchanged.
+- `docs/protocol/README.md` section *Idempotency and recovery* rewritten to ADR-0011:
+  three records instead of one status, one active work item, redelivery only inside
+  the delivering session, a per-credential lock released only by a human attestation,
+  and the statement that the API cannot tell which process sent a message. The
+  superseded ledger table and "`indeterminate` is final" are gone.
+- `ARCHITECTURE.md` section 6: the persistence engine is still undecided but now
+  carries ADR-0011's two durability requirements — `delivered` persisted before the
+  work item is sent, and an accepted result with its idempotency record committed
+  before `ok` is emitted.
+- `ARCHITECTURE.md` section 6: the shape of `edit.action` and the Luau-side
+  validation are settled (ADR-0008, ADR-0009); Luau conformance remains unverified.
+- Documentation no longer states that generated scripts cannot run in a v1 playtest.
+  `docs/protocol/README.md`, `docs/safety.md`, `ARCHITECTURE.md` and
+  `packages/protocol/README.md` now say that no protocol operation enables a script
+  and that this does not guarantee agent-authored code cannot execute (ADR-0010).
 
 ### Fixed
 
@@ -69,4 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-No engine code exists yet. Nothing in this release is runnable.
+No end-to-end engine exists yet. The core LLM and budget foundations are
+implemented and tested as libraries, but there is no agent loop, real provider
+adapter, API, sandbox, Studio plugin or web application to run.

@@ -1,0 +1,30 @@
+{
+  "description": "details is closed: there is no place for a stack trace.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "error",
+    "sent_at": 1730000000100,
+    "payload": {
+      "code": "internal",
+      "message": "Internal error.",
+      "retryable": true,
+      "details": {
+        "trace": "at line 3"
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/details",
+    "keyword": "additionalProperties"
+  }
+}

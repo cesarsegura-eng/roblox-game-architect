@@ -1,0 +1,24 @@
+{
+  "description": "The work id is not in a state that accepts a result (ADR-0011, RD5).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "edit.result",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "error",
+    "sent_at": 1730000000100,
+    "payload": {
+      "code": "unknown_work",
+      "message": "No such work item.",
+      "retryable": false
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Only whitespace.",
+  "message_raw": " \n",
+  "expect": {
+    "valid": false,
+    "stage": "parse",
+    "reason": "invalid_json"
+  }
+}

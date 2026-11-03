@@ -95,6 +95,30 @@ jobs:
         if: steps.check.outputs.found == 'true'
         run: stylua --check apps/studio-plugin/src
 
+  sandbox-parser:
+    name: Pinned Lute syntax bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+
+      - uses: CompeyDev/setup-rokit@v0.2.1
+
+      - name: Install pinned Luau toolchain
+        run: rokit install
+
+      - name: Verify pinned Lute version
+        run: test "$(lute --version)" = "1.0.0"
+
+      - name: Install Python package
+        run: uv sync --locked --extra dev
+
+      - name: Exercise the real Lute parser
+        run: uv run pytest -m integration packages/sandbox/tests/test_lute_integration.py
+
   hygiene:
     name: Repository hygiene (current tree only)
     runs-on: ubuntu-latest
