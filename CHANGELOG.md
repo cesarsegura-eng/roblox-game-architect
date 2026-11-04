@@ -62,6 +62,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   vectors for it and for the mixed form of `indeterminate`
   (`edit.result.response.error-result-conflict.json`,
   `edit.result.request.indeterminate-partial-knowledge.json`). 52 valid vectors.
+- `packages/api`: the plugin channel, on the **standard library** — no runtime
+  dependency and no web framework chosen. It runs the loop of ADR-0011 over the
+  transport of ADR-0007: the handshake with version negotiation, long-polled delivery
+  of one approved work item at a time with the state `delivered` persisted before the
+  response leaves, results with their duplicate, conflict and late cases, the bounded
+  replay cache, snapshots, the per-credential lock on each of T1 to T4, and the human
+  attestation that releases it. `store.py` keeps the state durable under `DATA_DIR`
+  behind a `Store` seam, so the persistence engine stays an open decision; the data
+  directory is named after a digest of the credential and never holds the token.
+  There is no agent loop, no LLM call and no web surface, and no Studio plugin has
+  ever connected to it.
+- `packages/api/json_profile.py` and `messages.py`: the API's own strict-JSON parser
+  and message validator, because the reference checks under `packages/protocol/tests/`
+  are test-only and `jsonschema` is a test dependency. `packages/api/tests/
+  test_conformance.py` holds them to the protocol's own vectors — all 42 parse vectors
+  and every request-kind vector in the suite, `generate` recipes expanded.
+- `packages/api/cli.py`: the operator surface until `apps/web` exists — `serve`,
+  `queue`, `approve`, `status` and `attest`, the last printing the warning it records.
+- `tools/fake_plugin.py` and `tools/examples/`: a stand-in that speaks the protocol and
+  **applies nothing**, so the loop can be driven by hand without Roblox.
+- `tests/test_api_e2e.py`: the loop over real HTTP, plus the checks that lifecycle state
+  survives a new process and that `DATA_DIR` never holds the credential.
 
 ### Changed
 
@@ -99,6 +121,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the delivering session, a per-credential lock released only by a human attestation,
   and the statement that the API cannot tell which process sent a message. The
   superseded ledger table and "`indeterminate` is final" are gone.
+- `packages/api`, `ARCHITECTURE.md` and `README.md` no longer describe the API as not
+  implemented: the plugin channel is, and the roadmap says stage 4 is in progress with
+  what is missing named. Approving work is refused while the lock is engaged, and after
+  an attestation until a fresh snapshot arrives, which is RD3 read as a precondition.
 - `ARCHITECTURE.md` section 6: the persistence engine is still undecided but now
   carries ADR-0011's two durability requirements — `delivered` persisted before the
   work item is sent, and an accepted result with its idempotency record committed

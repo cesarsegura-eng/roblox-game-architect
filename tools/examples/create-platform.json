@@ -1,0 +1,56 @@
+{
+  "type": "edit.action",
+  "action_id": "a-0001",
+  "declared_scope": [
+    {
+      "path": [
+        "Workspace"
+      ],
+      "extent": "subtree"
+    }
+  ],
+  "operations": [
+    {
+      "op": "create_instance",
+      "op_id": "o1",
+      "parent": {
+        "path": [
+          "Workspace"
+        ],
+        "expect_class": "Workspace"
+      },
+      "name": "Platform",
+      "class_name": "Part"
+    },
+    {
+      "op": "set_property",
+      "op_id": "o2",
+      "target": {
+        "path": [
+          "Workspace",
+          "Platform"
+        ],
+        "expect_class": "Part"
+      },
+      "property": "Size",
+      "value": {
+        "x": 20,
+        "y": 1,
+        "z": 20
+      }
+    },
+    {
+      "op": "set_property",
+      "op_id": "o3",
+      "target": {
+        "path": [
+          "Workspace",
+          "Platform"
+        ],
+        "expect_class": "Part"
+      },
+      "property": "Anchored",
+      "value": true
+    }
+  ]
+}

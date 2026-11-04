@@ -37,9 +37,10 @@ Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
 # listed, so they are never installed as a package. Add entries here as
 # packages/ gains real code.
 [tool.setuptools]
-packages = ["core", "core.llm", "sandbox"]
+packages = ["api", "core", "core.llm", "sandbox"]
 
 [tool.setuptools.package-dir]
+api = "packages/api"
 core = "packages/core"
 sandbox = "packages/sandbox"
 

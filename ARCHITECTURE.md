@@ -77,6 +77,12 @@ contributor run a generation without deploying anything
 
 ### `packages/api` — the service
 
+The plugin channel is implemented on the standard library: the handshake, long-polled
+delivery of one approved work item at a time, results, the per-credential lock of
+[ADR-0011](docs/architecture/adr/0011-delivery-execution-and-recovery.md) and the
+attestation that releases it, with the lifecycle state durable under `DATA_DIR`. No agent
+loop, no LLM call, no web surface, and no plugin has ever connected to it.
+
 HTTP endpoints, authentication, session state, persistence, and orchestration of
 long-running agent runs. It owns all credentials. It is the only component that
 talks to an LLM provider over the network

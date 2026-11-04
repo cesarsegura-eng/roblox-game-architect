@@ -118,7 +118,7 @@ it does not exist. Nothing here claims working software yet.
 | 1 | Repository hygiene, CI, governance | written; checks pass locally, CI itself has **never run** |
 | 2 | `packages/protocol` — first versioned schema | written; Python tests pass locally; CI not run on it; **Luau conformance not verified** |
 | 3 | `packages/core` — LLM foundation and run guards | in progress; provider/fake, trusted/untrusted framing and iteration/spend mechanisms are implemented; no real adapter or agent loop |
-| 4 | First vertical slice: generate → validate → run → report | planned |
+| 4 | First vertical slice: generate → validate → run → report | in progress; the `packages/api` plugin channel runs the whole protocol loop end to end, driven by tests and a stand-in plugin. No agent loop, no LLM call, and no Studio plugin has connected to it |
 | 5 | Studio plugin as a thin client | planned |
 | 6 | Web application | planned |
 | 7 | Agent evaluation suite with fixed cases | planned |
