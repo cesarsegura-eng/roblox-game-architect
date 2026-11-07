@@ -8,6 +8,7 @@ exchange is started by the client, and the work item arrives inside a poll respo
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 import urllib.error
@@ -181,3 +182,29 @@ def test_a_data_directory_never_holds_the_token(tmp_path):
     for path in written:
         assert TOKEN not in path.name
         assert TOKEN not in path.read_text(encoding="utf-8")
+
+
+def _raw_post(instance, content_length, body=b""):
+    connection = http.client.HTTPConnection("127.0.0.1", instance.server_address[1], timeout=10)
+    try:
+        connection.putrequest("POST", "/v1/messages")
+        connection.putheader("Authorization", f"Bearer {TOKEN}")
+        connection.putheader("Content-Length", content_length)
+        connection.endheaders(body)
+        response = connection.getresponse()
+        response.read()
+        return response.status
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize("content_length", ["-1", "abc", "1e3", "+5"])
+def test_a_malformed_content_length_is_rejected_not_waited_on(server, content_length):
+    instance, _ = server
+    # `read(-1)` would block until the client hung up; this must answer at once.
+    assert _raw_post(instance, content_length, b"{}") == 400
+
+
+def test_an_oversized_content_length_is_rejected_before_reading(server):
+    instance, _ = server
+    assert _raw_post(instance, str(1_048_577)) == 413

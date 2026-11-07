@@ -243,6 +243,8 @@ def _launch_windows(
     kernel32.Thread32Next.argtypes = [wintypes.HANDLE, ctypes.POINTER(ThreadEntry32)]
     kernel32.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel32.OpenThread.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
 
     job = kernel32.CreateJobObjectW(None, None)
     if not job:
@@ -268,8 +270,16 @@ def _launch_windows(
 
         # CREATE_SUSPENDED prevents any child code from running before assignment.
         process = _popen(command, cwd=cwd, env=env, creationflags=0x00000004)
-        if not kernel32.AssignProcessToJobObject(job, wintypes.HANDLE(process._handle)):
+        # Open the suspended child by PID rather than reading subprocess's private
+        # handle: PROCESS_SET_QUOTA | PROCESS_TERMINATE is all assignment needs.
+        process_handle = kernel32.OpenProcess(0x0100 | 0x0001, False, process.pid)
+        if not process_handle:
             raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            if not kernel32.AssignProcessToJobObject(job, process_handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            kernel32.CloseHandle(process_handle)
         # subprocess closes CreateProcessW's primary-thread handle, so reopen
         # the (still suspended) thread by enumerating this newly created PID.
         snapshot = kernel32.CreateToolhelp32Snapshot(0x00000004, 0)

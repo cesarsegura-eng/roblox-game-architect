@@ -117,7 +117,7 @@ jobs:
           grep -q '<token name="RunContext">3</token>' dist/rga-studio-plugin.rbxmx
 
   sandbox-parser:
-    name: Pinned Lute syntax bridge
+    name: Pinned Luau toolchain (Lute parser and fixed-template round)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -262,6 +262,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     server_version = "roblox-game-architect"
     sys_version = ""
+    # A client that declares a body and then stalls must not hold a thread forever.
+    # Long polls wait on the server side, so this does not cut them short.
+    timeout = 30
 
     def do_GET(self) -> None:
         if self.path.startswith(OPERATOR_BLENDER_ARTIFACT_PREFIX):
@@ -403,11 +406,23 @@ class _Handler(BaseHTTPRequestHandler):
                 },
             )
             return
-        length = int(self.headers.get("Content-Length") or 0)
+        raw_length = self.headers.get("Content-Length") or "0"
+        # A negative or non-numeric length must never reach `read`: `read(-1)` would
+        # block until the client closes the connection.
+        if not (raw_length.isascii() and raw_length.isdecimal()):
+            self.close_connection = True
+            self._plain(400, "Content-Length is invalid.")
+            return
+        length = int(raw_length)
         if length > MAX_MESSAGE_BYTES:
+            self.close_connection = True
             self._plain(413, "The message is larger than the protocol allows.")
             return
-        body = self.rfile.read(length)
+        try:
+            body = self.rfile.read(length)
+        except OSError:
+            self.close_connection = True
+            return
 
         service: Service = self.server.service  # type: ignore[attr-defined]
         timeout: float = self.server.poll_timeout_s  # type: ignore[attr-defined]
