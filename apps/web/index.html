@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Roblox Game Architect · Local Operator</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">RGA</div>
+      <div>
+        <p class="eyebrow">LOCAL OPERATOR</p>
+        <h1>Roblox Game Architect</h1>
+      </div>
+      <div id="connection-state" class="connection" role="status">Disconnected</div>
+    </header>
+
+    <main>
+      <section class="panel connection-panel" aria-labelledby="connection-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">01 / SERVICE</p><h2 id="connection-title">Connect to your local API</h2></div>
+          <div class="button-group">
+            <button id="check-mcp-button" class="button quiet" type="button" disabled>Check remote MCPs</button>
+            <button id="refresh-button" class="button quiet" type="button">Refresh</button>
+            <button id="disconnect-button" class="button quiet" type="button" disabled>Disconnect</button>
+          </div>
+        </div>
+        <div class="connect-row">
+          <label for="operator-token">Operator token</label>
+          <input id="operator-token" type="password" autocomplete="off" spellcheck="false" placeholder="OPERATOR_AUTH_TOKEN">
+          <button id="connect-button" class="button primary" type="button">Connect</button>
+        </div>
+        <p class="hint">The token stays in this tab's memory and is cleared when you disconnect or close the tab.</p>
+        <div id="service-summary" class="summary-grid" aria-live="polite">
+          <div><span>Session</span><strong id="session-value">—</strong></div>
+          <div><span>Delivery lock</span><strong id="lock-value">—</strong></div>
+          <div><span>Current snapshot</span><strong id="snapshot-value">—</strong></div>
+          <div><span>Recorded events</span><strong id="events-value">—</strong></div>
+          <div><span>Model spend</span><strong id="spend-value">—</strong></div>
+          <div><span>Remote Blender MCP</span><strong id="blender-connection-value">—</strong></div>
+          <div><span>Remote Roblox MCP</span><strong id="roblox-connection-value">—</strong></div>
+        </div>
+        <div id="work-list" class="work-list" aria-live="polite"></div>
+        <div class="event-heading"><h3>Recent activity</h3><span>latest 100</span></div>
+        <div id="event-log" class="event-log" aria-live="polite"></div>
+      </section>
+
+      <section class="panel world-panel" aria-labelledby="game-plan-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">02 / GAME PLANNING</p><h2 id="game-plan-title">Plan the experience</h2></div>
+          <span id="game-plan-availability" class="badge muted">Connect to check</span>
+        </div>
+        <p class="copy">Turn a game idea into a reviewable pitch, player loop, feature stages, map handoff, milestones, and validation goals. This step creates a plan only; it does not write code or change Studio.</p>
+        <label for="game-plan-brief">Game idea</label>
+        <textarea id="game-plan-brief" class="brief-field" spellcheck="true" placeholder="Describe the experience, players, and what makes each session fun..."></textarea>
+        <div class="form-footer world-footer">
+          <div>
+            <label class="review-check"><input id="game-plan-spend-confirmed" type="checkbox" disabled> I approve model use under the configured API session limit.</label>
+            <p class="hint">The first call is quoted before generation; retries share the same session budget.</p>
+          </div>
+          <button id="game-plan-quote-button" class="button quiet" type="button" disabled>Estimate plan cost</button>
+          <button id="game-plan-generate-button" class="button primary" type="button" disabled>Generate game plan</button>
+        </div>
+        <div id="game-plan-quote-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="game-plan-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="game-plan-output" class="recipe-output" hidden>
+          <div class="section-heading"><h3>Game plan</h3><div class="button-group"><button id="download-game-plan" class="button quiet" type="button">Download JSON</button><button id="use-plan-world-brief" class="button quiet" type="button">Set up map build</button></div></div>
+          <pre id="game-plan-json"></pre>
+        </div>
+      </section>
+
+      <section class="panel world-panel" aria-labelledby="world-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">03 / WORLD DESIGN</p><h2 id="world-title">Generate a scene recipe</h2></div>
+          <span id="world-availability" class="badge muted">Connect to check</span>
+        </div>
+        <p class="copy">Describe the biome, route, buildings, interior/exterior transitions, architecture, and atmosphere. The core loads the project’s world, Blender, and character skill packs where relevant. Get a first-call maximum-cost quote before generating a validated scene recipe. The configured session cap guards the full run, including retries.</p>
+        <label for="world-brief">World brief</label>
+        <textarea id="world-brief" class="brief-field" spellcheck="true" placeholder="A playable setting with..." aria-describedby="world-hint"></textarea>
+        <div class="form-footer world-footer">
+          <div>
+            <label class="review-check"><input id="spend-confirmed" type="checkbox" disabled> I approve model use under the configured API session limit.</label>
+            <p id="world-hint" class="hint">Recipe generation needs a first-call quote; all calls also pass the hard session budget guard.</p>
+          </div>
+          <button id="quote-button" class="button quiet" type="button" disabled>Estimate recipe cost</button>
+          <button id="generate-button" class="button primary" type="button" disabled>Generate scene recipe</button>
+        </div>
+        <div id="quote-result" class="notice" role="status" aria-live="polite"></div>
+        <div class="form-footer world-footer">
+          <label class="review-check"><input id="studio-spend-confirmed" type="checkbox" disabled> I approve Studio blockout model use under the configured API session limit.</label>
+          <button id="quote-studio-button" class="button quiet" type="button" disabled>Estimate Studio blockout cost</button>
+          <button id="generate-studio-button" class="button quiet" type="button" disabled>Generate Studio blockout</button>
+        </div>
+        <div id="studio-quote-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="world-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="recipe-output" class="recipe-output" hidden>
+          <div class="section-heading"><h3>Generated recipe</h3><button id="download-recipe" class="button quiet" type="button">Download JSON</button></div>
+          <pre id="recipe-json"></pre>
+          <div id="recipe-studio-controls">
+            <label class="review-check"><input id="recipe-studio-review" type="checkbox" disabled> I reviewed this recipe and approve creating a bounded Studio proxy blockout from it.</label>
+            <button id="queue-recipe-studio" class="button quiet" type="button" disabled>Queue Studio proxy blockout</button>
+            <p id="recipe-studio-result" class="notice" role="status" aria-live="polite">This deterministic conversion uses no additional model call and queues the action for review.</p>
+          </div>
+          <div id="remote-blender-controls" hidden>
+            <label class="review-check"><input id="remote-blender-review" type="checkbox" disabled> I reviewed this recipe and approve building a GLB with the configured remote Blender service.</label>
+            <button id="remote-blender-apply" class="button approve" type="button" disabled>Build GLB on remote Blender</button>
+            <button id="remote-blender-download" class="button quiet" type="button" hidden disabled>Download GLB artifact</button>
+            <label class="review-check"><input id="remote-roblox-asset-review" type="checkbox" disabled> I approve uploading this GLB as a new Roblox Model asset to the configured account or group. The upload is persistent and subject to Roblox moderation.</label>
+            <button id="remote-roblox-asset-upload" class="button approve" type="button" hidden disabled>Upload model to Roblox</button>
+            <button id="remote-roblox-asset-status" class="button" type="button" hidden disabled>Check model moderation</button>
+            <label id="remote-roblox-import-review-row" class="review-check" hidden><input id="remote-roblox-import-review" type="checkbox" disabled> Include this approved Roblox Model's static MeshParts in the generated place file.</label>
+          </div>
+          <div id="remote-roblox-controls" hidden>
+            <label for="roblox-gameplay-mode">Roblox build mode</label>
+            <select id="roblox-gameplay-mode" disabled>
+              <option value="blockout">Script-free map blockout</option>
+              <option value="obby">Playable Obby checkpoint course</option>
+              <option value="treasure_hunt">Playable Treasure Hunt template</option>
+              <option value="rule_game">Playable data-driven touch rules</option>
+            </select>
+            <label class="review-check"><input id="remote-roblox-review" type="checkbox" disabled> I reviewed this recipe and approve building the selected fixed Roblox mode.</label>
+            <button id="remote-roblox-build" class="button approve" type="button" disabled>Build Roblox place artifact</button>
+            <button id="remote-roblox-validate" class="button quiet" type="button" disabled>Validate on remote Roblox</button>
+            <label id="remote-roblox-publish-review-row" class="review-check" hidden><input id="remote-roblox-publish-review" type="checkbox" disabled> I opened and inspected this exact downloaded place in Roblox Studio. I approve replacing the pinned disposable test place version with this artifact.</label>
+            <button id="remote-roblox-publish" class="button approve" type="button" hidden disabled>Publish reviewed place to test</button>
+          </div>
+          <p id="remote-blender-result" class="notice" role="status" aria-live="polite"></p>
+          <p id="remote-roblox-result" class="notice" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="panel proposal-panel" aria-labelledby="proposal-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">03 / REVIEW</p><h2 id="proposal-title">Queue a declarative Studio action</h2></div>
+          <span class="badge">Scripts disabled</span>
+        </div>
+        <p class="copy">Generate a compact blockout from the world brief or paste an <code>edit.action</code> JSON proposal. The API validates its scope and allowed operations. Queueing does not approve it or deliver it to Studio.</p>
+        <label for="action-json">Action proposal</label>
+        <textarea id="action-json" spellcheck="false" autocomplete="off" aria-describedby="action-hint" placeholder="Paste an edit.action proposal to review…"></textarea>
+        <div class="form-footer">
+          <p id="action-hint" class="hint">Review every operation here before queueing. A second approval click is required.</p>
+          <button id="queue-button" class="button primary" type="button" disabled>Queue for approval</button>
+        </div>
+        <div id="queue-result" class="notice" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel proposal-panel" aria-labelledby="code-preview-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">04 / LUAU SOURCE</p><h2 id="code-preview-title">Preview statically validated code</h2></div>
+          <span id="code-preview-availability" class="badge muted">Connect to check</span>
+        </div>
+        <p class="copy">Generate a scoped scene-blockout candidate, then inspect it in this panel. Only source that passes the restricted Luau policy is shown. This preview never runs code, queues it, or sends it to Studio.</p>
+        <label for="code-preview-description">Requested blockout</label>
+        <textarea id="code-preview-description" class="brief-field" spellcheck="true" placeholder="Create a small stone gate inside the town scope…"></textarea>
+        <label for="code-preview-scope">Allowed Workspace scope</label>
+        <input id="code-preview-scope" type="text" value="Workspace/Town/**" spellcheck="false" autocomplete="off">
+        <div class="form-footer world-footer">
+          <div>
+            <label class="review-check"><input id="code-preview-spend-confirmed" type="checkbox" disabled> I approve model use under the configured API session limit.</label>
+            <p class="hint">The first call is quoted; retries share the hard session spend cap.</p>
+          </div>
+          <button id="code-preview-quote-button" class="button quiet" type="button" disabled>Estimate code cost</button>
+          <button id="code-preview-generate-button" class="button primary" type="button" disabled>Generate validated preview</button>
+        </div>
+        <div id="code-preview-quote-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="code-preview-result" class="notice" role="status" aria-live="polite"></div>
+        <div id="code-preview-output" class="recipe-output" hidden>
+          <h3>Static policy passed · execution remains disabled</h3>
+          <pre id="code-preview-source"></pre>
+        </div>
+      </section>
+
+      <section class="panel approval-panel" aria-labelledby="approval-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">05 / APPROVAL</p><h2 id="approval-title">Approve queued work</h2></div>
+        </div>
+        <p class="copy">After checking that the queued action ID matches the proposal you reviewed, approve it for the Studio plugin. Studio presents a final local Apply/Reject choice before changing the place.</p>
+        <div class="connect-row approve-row">
+          <label for="work-id">Queued action ID</label>
+          <input id="work-id" type="text" autocomplete="off" spellcheck="false" placeholder="action id from queue response">
+          <button id="approve-button" class="button approve" type="button" disabled>Approve for Studio</button>
+        </div>
+        <label class="review-check"><input id="review-confirmed" type="checkbox" disabled> I reviewed the exact action JSON above and confirmed its queued ID.</label>
+        <div id="approve-result" class="notice" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel boundary-panel" aria-labelledby="boundary-title">
+        <p class="eyebrow">CURRENT EXECUTION BOUNDARY</p>
+        <h2 id="boundary-title">Only reviewed, script-free Workspace edits</h2>
+        <p class="copy">The enabled subset creates folders, models, parts, or wedges in Workspace and sets allowlisted part properties. Luau source, deletion, reparenting, and playtests remain blocked. Reviewed Blender recipes are built by the separate remote MCP service; no Blender install is needed on this computer.</p>
+        <a href="https://create.roblox.com/docs/tutorials/curriculums/environmental-art" target="_blank" rel="noreferrer">Roblox environmental art curriculum ↗</a>
+      </section>
+    </main>
+    <footer><span>Local operator panel · configured MCP calls run on separate servers</span><span id="footer-message">Operator access is disabled until configured.</span></footer>
+  </body>
+</html>
