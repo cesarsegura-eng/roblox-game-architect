@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-01
-- **Revised:** 2026-11-02
+- **Revised:** 2026-11-07
 
 The decisions below were reviewed and approved by the project owner. The status
 stays *Proposed* until the text itself has been reviewed; it becomes *Accepted*
@@ -16,6 +16,36 @@ attestation plus recorded review that releases T4 (section 7), and the credentia
 the unit of the lock in v1 (section 7). Everything else that the review of this
 record raised is **not decided** and is listed under *Pending decisions*.
 Integrating these decisions does not accept the record.
+
+## Decisions taken on 2026-11-07
+
+The project owner asked for the project to be finished and delegated the remaining
+choices. This revision adopts, as **decided**, the choices that `packages/api`
+already implements and tests, and says what each one costs. None of them adds a
+field or an error code to the wire, so the protocol schemas are frozen by them.
+
+| Question | Decision |
+|---|---|
+| Which results are "the same" (section 5), `edit.result` | Same `outcome` and, **position by position**, the same `op_id`, `status`, `path` and error `code`. **The order of the operations is significant**: a permutation is a different result, hence a conflict. The envelope, `replayed` and the text of an error are not compared |
+| Which results are "the same", `playtest.report` | Same `outcome`, `duration_ms`, `output_truncated` and output lines `(t_ms, level, text)`. **[Plugin]** A plugin that resends a report sends the **stored** one unchanged and never measures again: a re-measured report is a conflict and engages T4 |
+| What the retry digest covers (section 6) | The **bytes of the request body**. A retry must be byte-identical, `sent_at` and key order included. No canonical number form is needed, so the strict JSON profile is untouched |
+| A held `message_id` returns with different content | Answered `invalid_message`. `message_id_reuse` is **not added** |
+| Result stored but not acknowledged; partial state | The accepted result and its idempotency entry live in **one state document committed by one SQLite transaction** ([ADR-0016](0016-sqlite-lifecycle-store.md)), so a state with only one of them stored does not exist. A crash after the commit is resolved by a resend under a new `message_id`, compared as above |
+| `replayed` | Recorded in the event history for every accepted result, duplicates included. It is never compared and **never releases a lock**: a declaration of provenance is not an identity (section 1). `playtest.report` has no such field, and none is added |
+| The current snapshot (section 7) | The last snapshot accepted in the current session, by arrival order. Its causal relation to the uncertain work is **asserted by the plugin and not verified by the API**. A snapshot of an older state is recorded `snapshot_superseded`; a repeated `snapshot_id` with different content is recorded `snapshot_conflict` and the first is kept. Neither engages the lock. No field is added |
+| `unknown_work` | Recorded as an event. It does **not** engage the lock |
+| What one attestation covers | One attestation releases the **whole lock of the credential**, whatever triggers hold it. A T4 lock also needs a recorded review, a non-empty free-text note about both results. The attestation records actor, warning text and review. The first result stays authoritative |
+| After a plugin restart, a stored terminal result | The plugin **may** resend it with a new `message_id`; for an `edit.result` it should set `replayed: true`. The API compares it as above and never executes anything again |
+| An `unknown` operation | Carries no `error`. Why it is undetermined belongs to the event history |
+| Session inactivity limit | 900 s, longer than the longest playtest (600 s) plus a margin |
+
+**Still open, and why.** The value of the descendant-scan bound L, the limits of the
+replay cache, ledger and history, the expiry of work items, and several projects
+per credential or Team Create need either a calibration against Studio or a
+product decision that has no user yet. **No plugin has ever been exercised against
+a live Studio session**, so every **[Plugin]** obligation and every **[Assumption]**
+here is unverified. For that reason, and only that reason, the record keeps the
+status `Proposed`.
 
 ## How to read the claims
 
@@ -178,7 +208,7 @@ processed again while P3 promises the stored response, which is why `ok` waits f
 both.
 
 This record does **not** say that the two are one atomic, all-or-nothing write.
-Whether a state with only one of them stored can exist is **[Pending]** (below).
+A state with only one of them stored cannot exist (see *Decisions taken on 2026-11-07*).
 
 The rule is of the form *durable before emitting*, like the one above for
 `delivered`. It is **not** a transaction that includes the network, and no
@@ -194,24 +224,20 @@ implementation can offer one: a response can always be lost after the storage.
   plugin **may resend the same content with a new `message_id`**. That is a new
   request, so the replay cache of P3 does not decide it. The API compares it with the
   result already recorded:
-  - for an `edit.result`, by the comparison that section 5 **proposes** and that is
-    still **[Pending]**, including whether the order of the operations is
-    significant. If the comparison finds the results the same, the resend is a
-    duplicate, answered `ok` with nothing changed; if it finds them different, it is
-    a conflict. This record does not close how that classification is made;
-  - for a `playtest.report`, the projection that decides "the same" is **[Pending]**
-    (section 5), so this record does not say whether a resend is a duplicate or a
-    conflict.
+  - for an `edit.result`, by the comparison of section 5 (order significant): the
+    same, it is a duplicate, answered `ok` with nothing changed; different, it is a
+    conflict;
+  - for a `playtest.report`, by the report projection of section 5: the same, a
+    duplicate; different, a conflict.
 
   Whatever the classification, the work is not executed again (RD2): a result is a
   report, not an action.
 - The opposite order, acknowledging before committing, would let a crash discard a
   result that the plugin believes settled.
 
-**[Pending]** What the API answers when the result was stored but could not be
-acknowledged; whether a state with only one of the result and its idempotency record
-stored can exist, and what the API does with it; and whether the replay cache stores
-error responses.
+**Decided 2026-11-07:** the result and its idempotency entry are committed together,
+so a partial state does not arise; whether the replay cache keeps error responses is
+left to the implementation, which stores the response it sent.
 
 The storage engine decision is recorded in
 [ADR-0016](0016-sqlite-lifecycle-store.md). The pending result-acknowledgement,
@@ -235,16 +261,14 @@ was recorded before.
 
 ### 5. Results: duplicate, contradictory, late
 
-**Same result. [Pending]** This paragraph is a **proposal**, not an adopted rule. It
-proposes that two results for one work id are the same when they have the same
+**Same result. [Decided 2026-11-07]** Two results for one work id are the same when they have the same
 outcome and, operation by operation, the same `op_id`, `status`, `path` and error
 `code`; the operations are paired by position in the array only as a working
-convention of the proposal. **Whether the order is significant is not decided here**:
-whether two results whose operations are a permutation of each other are the same or
-different is a pending decision, as is the
-exact set of compared fields. The `replayed` flag, the `message_id`, the `sent_at` and
-the text of an error message are proposed as not compared. Everything below that says
-"equal" or "different" depends on this proposal.
+convention. **The order is significant**: two results whose operations are a
+permutation of each other are different. The `replayed` flag, the `message_id`, the
+`sent_at` and the text of an error message are not compared. For a `playtest.report`
+the compared fields are `outcome`, `duration_ms`, `output_truncated` and the output
+lines `(t_ms, level, text)`.
 
 | Situation | **[API]** handling |
 |---|---|
@@ -282,7 +306,7 @@ result can.
 | Executing | `delivered` | `none` | No traffic: P1 forbids polling. If the API expires the session meanwhile, the result goes in a new session (late). |
 | Plugin restarted mid-execution | `closed` once the session ends | `unknown` (inferred) | Work id unchanged. `session_id` and `message_id` are new. No redelivery. |
 | Result lost | `delivered` or `closed` | `none` or `known` | Resent with the same `message_id`: if the API has it, the stored acknowledgement. |
-| Result recorded, acknowledgement lost | `closed` | `known`, or `unknown` if the recorded result is `indeterminate` | Resent with a new `message_id` and the same content. For an `edit.result`, compared with the recorded one by the proposal of section 5, which is **[Pending]**: if it is classified as a duplicate it is answered `ok` with nothing changed. For a `playtest.report` the comparison is **[Pending]**. Nothing is executed again. Knowledge does not change, and a lock that the result engaged stays until a human attests (section 7) |
+| Result recorded, acknowledgement lost | `closed` | `known`, or `unknown` if the recorded result is `indeterminate` | Resent with a new `message_id` and the same content. Compared with the recorded one by the projection of section 5: if it is a duplicate it is answered `ok` with nothing changed. Nothing is executed again. Knowledge does not change, and a lock that the result engaged stays until a human attests (section 7) |
 | Duplicate result | `closed` | `known`, or `unknown` if the recorded result is `indeterminate` | Same work id; acknowledged without change. |
 | Contradictory result | `closed` | `known`, or `unknown` if the first result is `indeterminate` | `result_conflict`; first result stays. |
 | Late result | `closed` | `unknown → known`, or stays `unknown` if the late result is `indeterminate` | New session, new `message_id`, same work id. |
@@ -344,18 +368,20 @@ limits what such an overlap can do; it does not remove the risk.
 Making a different result authoritative after a review is **not** decided by this
 record; it would need a further decision.
 
-**[Pending]** What one attestation covers when several items or triggers hold the
-lock at once; what the review of the two results of T4 must contain and where it is
-recorded; and whether `unknown_work` or a conflicting snapshot also engage the lock.
+**Decided 2026-11-07:** one attestation releases the whole lock of the credential,
+whatever triggers hold it. A T4 lock also needs a recorded review, a non-empty note
+about both results, kept in the event history. `unknown_work` and a conflicting
+snapshot are recorded and do not engage the lock.
 
 After the lock is released, the credential is **recovered and enabled** only when a
 fresh snapshot of the current session arrives (`session_start` or `after_action`,
 captured while idle, RD4). Planning resumes from that snapshot, not from inference.
 
-**[Pending]** How the current snapshot is identified, how an obsolete one is
-rejected, and what a snapshot shows about the state after the uncertain work. The
-rule stands that a snapshot never turns an unknown outcome into `applied` or
-`rejected` (section 5).
+**Decided 2026-11-07:** the current snapshot is the last one accepted in the current
+session; an older one is recorded as superseded; what a snapshot shows about the
+state after the uncertain work is asserted by the plugin and not verified. The rule
+stands that a snapshot never turns an unknown outcome into `applied` or `rejected`
+(section 5).
 
 ### 8. What the plugin checks, and when
 
@@ -365,10 +391,11 @@ is outside the protocol. If a persisted ledger shows an item that was being appl
 when the plugin stopped, the plugin **does not apply it again**: it reports
 `indeterminate` with every operation `unknown`.
 
-**[Pending]** What the plugin does after a restart with a ledger entry that holds a
-**terminal outcome** (re-send it or not, and whether such a re-send is marked) is not
-decided here, for `edit.result` or for `playtest.report`. Neither does this record
-say what else a plugin may persist across a restart.
+**Decided 2026-11-07:** after a restart, a ledger entry that holds a **terminal
+outcome** may be resent under a new `message_id` (an `edit.result` should carry
+`replayed: true`; a `playtest.report` has no marker). The API never executes anything
+again because of it. What else a plugin may persist across a restart is left to the
+plugin.
 
 - **Write-ahead marker.** Before the first mutation of an action the plugin records
   that it is applying it.
@@ -438,8 +465,7 @@ stops at its first failure:
   determined yields `indeterminate`.
 - **An `unknown` operation carries no `error`.** The schema ties `error` to the
   status `failed`, so why an operation is undetermined is not expressible in the
-  message; it belongs to the event history (section 4). Whether that is acceptable
-  is **[Pending]**.
+  message; it belongs to the event history (section 4). Accepted on 2026-11-07.
 
 This **replaces** the earlier meaning of `indeterminate`, in which every operation
 had to be `unknown`. The schema is unchanged: the status `unknown` already exists.
@@ -477,8 +503,9 @@ changes still to be applied.
 ## What changes, and what does not exist yet
 
 **The changes this record makes to the wire are applied; nothing else in it is.**
-This record remains `Proposed`: being applied is not being approved, and every
-`[Pending]` below is still open.
+This record remains `Proposed` only because no plugin has been exercised against
+Studio; the choices that were `[Pending]` are settled in *Decisions taken on
+2026-11-07*.
 
 Applied, in one protocol change that lands before the tag `protocol-v1.0`:
 
@@ -497,9 +524,8 @@ Applied, in one protocol change that lands before the tag `protocol-v1.0`:
   [ADR-0013](0013-conformance-suites.md), which does not exist.
 - No plugin exists, so every **[Plugin]** obligation in this record is unexercised,
   and so is every **[Assumption]** about Studio.
-- `message_id_reuse`, which a bounded replay cache would need in order to refuse a
-  repeated `message_id` carrying different content, is **not added**: whether it
-  should exist as a code of its own is **[Pending]**.
+- `message_id_reuse` is **not added**: a repeated `message_id` with different content
+  is answered `invalid_message` (decided 2026-11-07).
 
 Documentation corrected together with this record: `docs/protocol/README.md` carries
 a note that this record supersedes the parts of it that differ.
@@ -589,40 +615,18 @@ a note that this record supersedes the parts of it that differ.
 ## Pending decisions
 
 - The value of L, and the bounds of the replay cache, the ledger and the history.
-- The durable storage for the write-ahead record.
-- Inactivity limits for sessions.
+  Both need a calibration against Studio.
 - Expiry of work items.
 - Executor identity and fencing, which need a mechanism of enforcement: a future
   architectural decision.
 - A finer unit of the lock than the credential, which needs an identifier of a place
   or project on the wire; how several Studio instances under one credential coexist
   given P5; and the behaviour for Team Create.
-- The user experience of the human attestation, which belongs to the web application
-  and to the not-yet-specified API-to-web messages.
+- The user experience of the human attestation, which belongs to the web application.
 
-**Raised in the review of this record and not decided:**
-
-- The canonical comparison of results (section 5), which is a proposal and not an
-  adopted rule: which fields are compared, whether the order of the operations is
-  significant, and which fields of a `playtest.report`.
-- The comparison of retried requests (P3): the bytes of the body or a canonical parsed
-  structure; the numeric representation, if the second, which is a decision of the
-  JSON profile; what is answered when a held `message_id` returns with different
-  content, including whether a new protocol error is added; whether the replay cache
-  stores error responses and in what form.
-- The role of `replayed`, which exists only in `edit.result`, and the policy for
-  `playtest.report`, which has no such marker.
-- What a plugin persists and re-sends after a restart, terminal outcomes included
-  (section 8).
-- The order of a late result, the snapshot and polling after a session loss, and what
-  the plugin does on each answer when it re-sends a result.
-- How a snapshot is identified as current.
-- The contents of the review in T4, and what one attestation covers.
-- What the API answers when a result was stored but could not be acknowledged, and
-  whether a state with only one of the result and its idempotency record stored can
-  exist (section 3).
-- The permitted sequences of an `indeterminate` result (section 9) and the update of
-  the test-only reference check.
+The durable storage for the write-ahead record is SQLite
+([ADR-0016](0016-sqlite-lifecycle-store.md)), the session inactivity limit is 900 s,
+and the other choices that were open are settled in *Decisions taken on 2026-11-07*.
 
 ## Related ADRs
 

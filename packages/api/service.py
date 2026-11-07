@@ -1,8 +1,8 @@
 """The lifecycle of a unit of work: sessions, delivery, results and the lock.
 
-This implements ADR-0011, which is **Proposed**. Three decisions that record leaves open
-had to be made one way for a service to run at all. Each is marked `PROVISIONAL` at the
-point where it is made, and making it here does not close it:
+This implements ADR-0011, which stays **Proposed** only because no plugin has been
+exercised against Studio. Three choices the record once left open are decided there
+("Decisions taken on 2026-11-07") and are marked where they are made:
 
 1. how two results are compared, to tell a duplicate from a conflict (section 5);
 2. what the digest of a retried request is computed over (section 6);
@@ -39,7 +39,7 @@ from .store import Store
 
 # Longer than the longest playtest (600 s, docs/protocol/README.md) plus a margin, so a
 # report does not arrive late merely because the plugin was running a test.
-# PROVISIONAL: ADR-0011 leaves session inactivity limits [Pending].
+# Decided in ADR-0011 (2026-11-07): the session inactivity limit.
 DEFAULT_INACTIVITY_S = 900.0
 
 WORK_KINDS = ("edit.action", "playtest.request")
@@ -992,21 +992,20 @@ def _replay_key(request: Request) -> str:
 
 
 def _digest(body: bytes) -> str:
-    """PROVISIONAL (ADR-0011 section 6): the digest is over the bytes of the body.
+    """Decided in ADR-0011 (section 6): the digest is over the bytes of the body.
 
-    The record leaves open whether it is these bytes or a canonical form of the parsed
-    value, and the second cannot be written before the strict JSON profile fixes a
-    canonical form for a number. Over the bytes, a retry must be byte-identical.
+    A canonical form of the parsed value would need the strict JSON profile to fix a
+    canonical form for a number, which it does not. Over the bytes, a retry must be
+    byte-identical.
     """
     return hashlib.sha256(body).hexdigest()
 
 
 def _projection(payload: dict[str, Any], *, is_action: bool) -> list[Any]:
-    """PROVISIONAL (ADR-0011 section 5): what makes two results the same.
+    """Decided in ADR-0011 (section 5): what makes two results the same.
 
-    This is the comparison the record *proposes*, not an adopted rule. Operations are
-    paired by position, `replayed` and the text of an error are not compared, and whether
-    a permutation is a different result is one of the open questions.
+    Operations are paired by position, so a permutation is a different result.
+    `replayed`, the envelope and the text of an error are not compared.
     """
     if not is_action:
         return [

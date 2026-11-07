@@ -148,10 +148,10 @@ recipe/action, and provider exception text.
 The panel's HTML, CSS, and JavaScript are included as `apps` package resources,
 so the operator UI does not depend on a source-checkout-relative asset path.
 
-**Three decisions ADR-0011 leaves open had to be made one way for this to run at all.**
-Each is marked `PROVISIONAL` where it is made, and making it here does not settle it: how
-two results are compared, what the idempotency digest covers, and what is answered when a
-`message_id` returns with different content.
+**Three choices were made for this to run, and ADR-0011 records them as decided
+(2026-11-07):** how two results are compared (order significant), that the idempotency
+digest covers the bytes of the body, and that a `message_id` returning with different
+content is answered `invalid_message`.
 
 ## Running it
 
