@@ -20,18 +20,17 @@ Rationale: [ADR-0006](../architecture/adr/0006-protocol-single-source-of-truth.m
 | Vectors (52 valid, 148 invalid, 42 parse) | written |
 | Python reference checks (`packages/protocol/tests/`) | written; pass locally |
 | CI | **not verified**: the workflows have not run on this change |
-| Luau parser and validator | **do not exist**; Luau conformance is *specified, not verified* |
+| Plugin-side work-item validation | bounded script-free edit subset is checked before review; full protocol-vector conformance remains **unverified** |
 | `approval.request`, `run.log` (API → web) | deferred; adding a message type is compatible |
-| [ADR-0011](../architecture/adr/0011-delivery-execution-and-recovery.md) | proposed; its **protocol changes are applied** (error codes, the meaning of `indeterminate`, the recovery section below). Its state machines, lock and records are API and plugin behaviour with no schema, and are **not implemented** |
+| [ADR-0011](../architecture/adr/0011-delivery-execution-and-recovery.md) | proposed; its wire changes and API lifecycle, durable lock, result records and recovery attestation are implemented and exercised by API tests; Studio runtime recovery still needs validation |
 | [ADR-0010](../architecture/adr/0010-script-execution-reach-and-action-semantics.md), [ADR-0012](../architecture/adr/0012-untrusted-text-and-unicode-rendering.md), [ADR-0013](../architecture/adr/0013-conformance-suites.md) | **proposed; not applied** to the schemas, vectors, reference checks or the sections named below |
 
 **What is applied and what is not.** ADR-0011's changes to the wire are **applied**:
 `unknown_action` is now `unknown_work`, `result_conflict` exists, `indeterminate`
 means *at least one* operation is `unknown` with the applied ones before it and the
-skipped ones after, and the section *Idempotency and recovery* below has been
-rewritten to that model. Its state machines, its lock and its three records are API
-and plugin behaviour, have no schema, and are **not implemented**: they are to be
-specified as vectors by the `lifecycle` suite of ADR-0013.
+skipped ones after, and the section *Idempotency and recovery* below describes
+that model. API state machines, the lock, durable records and recovery
+attestation are implemented; Studio runtime recovery still needs validation.
 
 ADR-0010 (script execution reach and action semantics), ADR-0012 (untrusted text and
 Unicode rendering) and ADR-0013 (conformance suites) call for changes to the schemas,
@@ -269,6 +268,7 @@ restrict it further and may never loosen it. A property is allowed on `Part` and
 | `Transparency` | number | 0 to 1 |
 | `Size` | `{x, y, z}` | each 0.05 to 2048 |
 | `Position` | `{x, y, z}` | each −100000 to 100000 |
+| `Orientation` | `{x, y, z}` | each −360 to 360 degrees (Roblox Y-X-Z order) |
 | `Color` | `{r, g, b}` | each 0 to 1 (`Color3.new`; no 0–255 form, no HDR) |
 | `Material` | `{enum: "Material", item}` | `item` ∈ Plastic, SmoothPlastic, Wood, WoodPlanks, Metal, Concrete, Brick, Glass, Neon, Grass, Sand, Fabric |
 
@@ -629,7 +629,9 @@ packages/protocol/
 
 ## Known limitations
 
-- Luau conformance is unverified; no Luau code exists (ADR-0009).
+- Full Luau protocol conformance is unverified; the Studio plugin validates its
+  bounded edit subset, but no validator runs the complete protocol vectors
+  inside Luau (ADR-0009).
 - Agent-authored code can execute in a playtest by paths the schemas do not prevent
   (ADR-0010, proposed); the guarantees are narrower than earlier versions of this
   document stated.

@@ -88,6 +88,9 @@
         "Position": {
           "$ref": "../common.json#/$defs/vector3_position"
         },
+        "Orientation": {
+          "$ref": "../common.json#/$defs/vector3_orientation"
+        },
         "Color": {
           "$ref": "../common.json#/$defs/color3"
         },

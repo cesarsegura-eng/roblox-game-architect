@@ -77,6 +77,7 @@ ALLOWLIST = {
     "Transparency",
     "Size",
     "Position",
+    "Orientation",
     "Color",
     "Material",
 }

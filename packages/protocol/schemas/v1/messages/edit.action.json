@@ -367,6 +367,26 @@
       ],
       "additionalProperties": false
     },
+    "set_property_Orientation": {
+      "type": "object",
+      "properties": {
+        "op": { "type": "string", "const": "set_property" },
+        "op_id": { "$ref": "../common.json#/$defs/id" },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": { "$ref": "../common.json#/$defs/path" },
+            "expect_class": { "$ref": "../common.json#/$defs/part_class" }
+          },
+          "required": ["path", "expect_class"],
+          "additionalProperties": false
+        },
+        "property": { "type": "string", "const": "Orientation" },
+        "value": { "$ref": "../common.json#/$defs/vector3_orientation" }
+      },
+      "required": ["op", "op_id", "target", "property", "value"],
+      "additionalProperties": false
+    },
     "set_property_Color": {
       "type": "object",
       "properties": {
@@ -481,6 +501,9 @@
         },
         {
           "$ref": "#/$defs/set_property_Position"
+        },
+        {
+          "$ref": "#/$defs/set_property_Orientation"
         },
         {
           "$ref": "#/$defs/set_property_Color"

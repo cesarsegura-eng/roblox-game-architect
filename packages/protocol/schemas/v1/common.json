@@ -249,6 +249,17 @@
       ],
       "additionalProperties": false
     },
+    "vector3_orientation": {
+      "description": "Bounded Euler orientation in degrees for a reviewed BasePart blockout.",
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "minimum": -360, "maximum": 360 },
+        "y": { "type": "number", "minimum": -360, "maximum": 360 },
+        "z": { "type": "number", "minimum": -360, "maximum": 360 }
+      },
+      "required": ["x", "y", "z"],
+      "additionalProperties": false
+    },
     "color3": {
       "description": "Normalised channels, equivalent to Color3.new. No 0-255 form, no HDR.",
       "type": "object",
