@@ -21,13 +21,13 @@ from api.store import FileStore
 
 pytestmark = pytest.mark.integration
 
-TOKEN = "e2e-token"  # noqa: S105 - a local test credential
+TOKEN = "e2e-only-token-with-at-least-32-printable-characters"  # noqa: S105 - local test credential
 
 
 @pytest.fixture
 def server(tmp_path):
     service = Service(FileStore(tmp_path / "api"))
-    instance = ApiServer(service, port=0, poll_timeout_s=1.0)
+    instance = ApiServer(service, port=0, poll_timeout_s=1.0, plugin_token=TOKEN)
     thread = threading.Thread(target=instance.serve_forever, daemon=True)
     thread.start()
     yield instance, service

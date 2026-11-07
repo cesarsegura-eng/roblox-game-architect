@@ -164,7 +164,16 @@ def _entry_properties(value: object, where: str) -> None:
     """
     body = _object(
         value,
-        {"Anchored", "CanCollide", "Transparency", "Size", "Position", "Color", "Material"},
+        {
+            "Anchored",
+            "CanCollide",
+            "Transparency",
+            "Size",
+            "Position",
+            "Orientation",
+            "Color",
+            "Material",
+        },
         set(),
         where,
     )
@@ -177,6 +186,8 @@ def _entry_properties(value: object, where: str) -> None:
         _vector(body["Size"], f"{where}/Size", 0.05, 2048)
     if "Position" in body:
         _vector(body["Position"], f"{where}/Position", -100000, 100000)
+    if "Orientation" in body:
+        _vector(body["Orientation"], f"{where}/Orientation", -360, 360)
     if "Color" in body:
         channels = _object(body["Color"], {"r", "g", "b"}, {"r", "g", "b"}, f"{where}/Color")
         for channel in ("r", "g", "b"):

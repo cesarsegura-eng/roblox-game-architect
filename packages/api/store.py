@@ -1,22 +1,18 @@
-"""Durable storage for the lifecycle records, behind a seam.
+"""Durable storage for API lifecycle records, behind a small store seam.
 
-ADR-0011 needs two things of whatever stores this: the state `delivered` persisted
-*before* the response carrying a work item leaves, and an accepted result with its
-idempotency record committed *before* `ok` is emitted. Neither is a transaction that
-includes the network, and no store can offer one.
-
-**The engine itself is still an open decision** (`ARCHITECTURE.md` section 6). What is
-here is a provisional implementation, not that decision: one JSON document per
-credential under `DATA_DIR`, replaced atomically. It is adequate for the local,
-single-user service the design assumes, and it is behind `Store` so that choosing the
-engine later does not reach into the service.
+The production store commits each state transition in a SQLite FULL-synchronous
+transaction before the service sends its response. It is intended for the local,
+single-user API and a local disk, not a multi-host deployment or network filesystem.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -48,10 +44,10 @@ class MemoryStore:
 
 
 class FileStore:
-    """One JSON document per credential under `root`, replaced atomically.
+    """Legacy per-credential JSON storage retained for migration compatibility.
 
-    `commit` returns only once the bytes and the directory entry are on the device, so a
-    caller that responds after it returns satisfies ADR-0011's durability rules.
+    The API uses :class:`SQLiteStore`. This class can create legacy state in tests
+    and supports tools that still need to read the old on-disk layout.
     """
 
     def __init__(self, root: Path) -> None:
@@ -90,7 +86,7 @@ class FileStore:
         self._sync_directory()
 
     def _sync_directory(self) -> None:
-        """Make the rename itself durable. Not available on every platform."""
+        """Best-effort directory sync for the legacy file format."""
         try:
             fd = os.open(str(self._root), os.O_RDONLY)
         except OSError:
@@ -101,3 +97,75 @@ class FileStore:
             pass
         finally:
             os.close(fd)
+
+
+class SQLiteStore:
+    """Transactional, crash-durable lifecycle state for the local API.
+
+    The DB stores a full SHA-256 credential key instead of the bearer credential.
+    Existing FileStore documents are migrated on first access for that credential;
+    the legacy file is removed only after the SQLite transaction commits.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._root.mkdir(parents=True, exist_ok=True)
+        self._path = root / "api-state.sqlite3"
+        with closing(self._connect()) as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS credential_state ("
+                "credential_hash TEXT PRIMARY KEY, state_json TEXT NOT NULL)"
+            )
+            connection.commit()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path, timeout=10.0)
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=FULL")
+        connection.execute("PRAGMA busy_timeout=10000")
+        return connection
+
+    @staticmethod
+    def _key(credential: str) -> str:
+        return hashlib.sha256(credential.encode("utf-8")).hexdigest()
+
+    def _legacy_path(self, credential: str) -> Path:
+        return self._root / f"{self._key(credential)[:32]}.json"
+
+    def load(self, credential: str) -> dict[str, Any] | None:
+        key = self._key(credential)
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT state_json FROM credential_state WHERE credential_hash = ?", (key,)
+            ).fetchone()
+            if row is not None:
+                return json.loads(row[0])
+
+            legacy = self._legacy_path(credential)
+            if not legacy.exists():
+                return None
+            state = json.loads(legacy.read_text(encoding="utf-8"))
+            body = json.dumps(state, ensure_ascii=False, allow_nan=False)
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "INSERT OR IGNORE INTO credential_state (credential_hash, state_json) "
+                "VALUES (?, ?)",
+                (key, body),
+            )
+            row = connection.execute(
+                "SELECT state_json FROM credential_state WHERE credential_hash = ?", (key,)
+            ).fetchone()
+            connection.commit()
+        legacy.unlink(missing_ok=True)
+        return json.loads(row[0])
+
+    def commit(self, credential: str, state: dict[str, Any]) -> None:
+        body = json.dumps(state, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "INSERT INTO credential_state (credential_hash, state_json) VALUES (?, ?) "
+                "ON CONFLICT (credential_hash) DO UPDATE SET state_json = excluded.state_json",
+                (self._key(credential), body),
+            )
+            connection.commit()

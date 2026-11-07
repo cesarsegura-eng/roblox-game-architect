@@ -199,6 +199,26 @@ def test_a_repeated_message_id_with_different_content_is_refused(service):
     assert response["payload"]["code"] == "invalid_message"
 
 
+def test_snapshot_accepts_bounded_orientation_and_rejects_out_of_range(service):
+    session = hello(service)["session_id"]
+    payload = snapshot()
+    payload["entries"].append(
+        {
+            "path": ["Workspace", "Part"],
+            "class_name": "Part",
+            "properties": {"Orientation": {"x": 0, "y": 90, "z": -45}},
+        }
+    )
+    accepted, _ = send(service, envelope("project.state", "m-orientation", session, payload))
+    assert accepted["status"] == "ok"
+
+    payload["entries"][1]["properties"]["Orientation"]["x"] = 361
+    rejected, _ = send(
+        service, envelope("project.state", "m-orientation-invalid", session, payload)
+    )
+    assert rejected["payload"]["code"] == "invalid_message"
+
+
 # ------------------------------------------------------------------ results
 
 
@@ -479,3 +499,162 @@ def test_the_event_history_only_grows(service):
     before = service.status(TOKEN)["events"]
     send(service, envelope("project.state", "m-1", session, snapshot()))
     assert service.status(TOKEN)["events"] > before
+
+
+def test_scene_workflow_id_is_carried_into_the_queue_audit(service):
+    workflow_id = "f392f44e-83b1-4026-9b68-42e7d7d9f50b"
+    service.queue(TOKEN, action(), workflow_id=workflow_id)
+
+    events, total = service.operator_events(TOKEN)
+    assert total == 1
+    assert events[0]["kind"] == "queued"
+    assert events[0]["work_id"] == "a-1"
+    assert events[0]["workflow_id"] == workflow_id
+
+
+def test_queue_rejects_an_invalid_workflow_id(service):
+    with pytest.raises(ValueError, match="workflow_id must be a UUID"):
+        service.queue(TOKEN, action(), workflow_id="scene-run")
+
+
+def test_generation_audit_records_only_run_metadata_not_user_content(service):
+    service.record_generation_attempt(
+        TOKEN,
+        run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+        operation="blender_scene_recipe",
+        succeeded=True,
+        duration_ms=1234,
+        summary={
+            "object_count": 10,
+            "light_count": 2,
+            "character_count": 1,
+            "output_bytes": 2048,
+        },
+    )
+
+    events, total = service.operator_events(TOKEN)
+    assert total == 1
+    assert events[-1] == {
+        "at": events[-1]["at"],
+        "kind": "model_generation_succeeded",
+        "session": None,
+        "run_id": "f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+        "operation": "blender_scene_recipe",
+        "duration_ms": 1234,
+        "object_count": 10,
+        "light_count": 2,
+        "character_count": 1,
+        "output_bytes": 2048,
+    }
+    assert "brief" not in events[-1]
+    assert "recipe" not in events[-1]
+
+
+def test_luau_preview_audit_records_counts_without_source(service):
+    service.record_generation_attempt(
+        TOKEN,
+        run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+        operation="luau_source_preview",
+        succeeded=True,
+        duration_ms=123,
+        summary={"iterations": 1, "source_bytes": 42},
+    )
+    events, _ = service.operator_events(TOKEN)
+    assert events[-1]["operation"] == "luau_source_preview"
+    assert events[-1]["iterations"] == 1
+    assert events[-1]["source_bytes"] == 42
+    assert "source" not in events[-1]
+
+
+def test_generation_model_trace_checks_totals_and_never_accepts_prompt_fields(service):
+    trace = {
+        "provider": "test-provider",
+        "model": "test-model",
+        "iterations": 1,
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "cost_usd": "0.01",
+        "attempts": [
+            {
+                "attempt": 1,
+                "provider": "test-provider",
+                "model": "test-model",
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "cost_usd": "0.01",
+            }
+        ],
+    }
+    service.record_generation_attempt(
+        TOKEN,
+        run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+        operation="luau_source_preview",
+        succeeded=True,
+        duration_ms=123,
+        summary={"iterations": 1, "source_bytes": 42, "model_trace": trace},
+    )
+    events, _ = service.operator_events(TOKEN)
+    assert events[-1]["model_trace"] == trace
+    assert "source" not in events[-1]
+    with pytest.raises(ValueError, match="totals do not match"):
+        service.record_generation_attempt(
+            TOKEN,
+            run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+            operation="luau_source_preview",
+            succeeded=True,
+            duration_ms=123,
+            summary={
+                "iterations": 1,
+                "source_bytes": 42,
+                "model_trace": {**trace, "input_tokens": 11},
+            },
+        )
+    with pytest.raises(ValueError, match="audit summary"):
+        service.record_generation_attempt(
+            TOKEN,
+            run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+            operation="luau_source_preview",
+            succeeded=True,
+            duration_ms=123,
+            summary={"iterations": 1, "source_bytes": 42, "prompt": "private"},
+        )
+
+
+def test_failed_generation_audit_omits_exception_and_prompt_details(service):
+    service.record_generation_attempt(
+        TOKEN,
+        run_id="f392f44e-83b1-4026-9b68-42e7d7d9f50b",
+        operation="studio_blockout",
+        succeeded=False,
+        duration_ms=12,
+        failure_stage="validation",
+    )
+
+    events, _total = service.operator_events(TOKEN)
+    assert events[-1]["kind"] == "model_generation_failed"
+    assert events[-1]["failure_stage"] == "validation"
+    assert "brief" not in events[-1]
+    assert "error" not in events[-1]
+
+
+def test_reviewed_place_publish_receipt_is_audited_once_without_file_contents(service):
+    details = {
+        "request_id": "12345678-1234-4234-8234-123456789abc",
+        "approval_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "artifact_sha256": "a" * 64,
+        "universe_id": "1234",
+        "place_id": "5678",
+        "version_number": 9,
+        "remote_host": "roblox-mcp.example.test",
+    }
+    service.record_roblox_place_published(TOKEN, **details)
+    service.record_roblox_place_published(TOKEN, **details)
+    events, total = service.operator_events(TOKEN)
+    publish_events = [event for event in events if event["kind"] == "roblox_place_published"]
+    assert len(publish_events) == 1
+    assert publish_events[0]["artifact_sha256"] == "a" * 64
+    assert publish_events[0]["version_number"] == 9
+    assert "place_file" not in publish_events[0]
+    assert total == len(events)
+    with pytest.raises(ValueError, match="audit details"):
+        service.record_roblox_place_published(TOKEN, **{**details, "version_number": True})
