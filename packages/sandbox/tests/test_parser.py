@@ -19,6 +19,7 @@ from sandbox.parser import (
     MAX_STDERR_BYTES,
     MAX_STDOUT_BYTES,
     PINNED_LUTE_VERSION,
+    CstSummary,
     LuteSyntaxParser,
     LuteUnavailableError,
     LuteVersionError,
@@ -29,6 +30,8 @@ from sandbox.parser import (
 )
 
 _LINUX = sys.platform.startswith("linux")
+_WINDOWS = sys.platform == "win32"
+_MEMORY_LIMITED = _LINUX or _WINDOWS
 _MIB = 1024 * 1024
 
 
@@ -56,13 +59,23 @@ def _install_fake_lute(monkeypatch: pytest.MonkeyPatch, *, version: str = "1.0.0
             fake.source_paths.append(source_path)
             valid = source_path.read_text(encoding="utf-8") != "invalid syntax"
             return _ProcessResult(
-                returncode=0, stdout=b'{"syntax_valid":%s}' % (b"true" if valid else b"false")
+                returncode=0,
+                stdout=b'{"syntax_valid":%s,"summary":' % (b"true" if valid else b"false")
+                + _EMPTY_SUMMARY_JSON
+                + b',"program":{"kind":"block","statements":[]}}',
             )
         raise AssertionError(f"unexpected Lute arguments: {command!r}")
 
     monkeypatch.setattr("sandbox.parser.shutil.which", fake_which)
     monkeypatch.setattr("sandbox.parser._run_bounded", fake_run)
     return fake
+
+
+_EMPTY_SUMMARY_JSON = (
+    b'{"globals":[],"access_chains":[],"calls":[],"bracket_index_count":0,'
+    b'"unresolved_call_count":0,"loop_kinds":[]}'
+)
+_EMPTY_PROGRAM_JSON = b'{"kind":"block","statements":[]}'
 
 
 def _replace_runner(monkeypatch: pytest.MonkeyPatch, result: _ProcessResult | Exception) -> None:
@@ -169,6 +182,113 @@ def test_checker_output_must_be_exact_json_shape(monkeypatch: pytest.MonkeyPatch
     )
     with pytest.raises(LuteUnavailableError, match="invalid result"):
         parser.parse("local value = 1")
+
+
+def test_analysis_returns_bounded_cst_summary_and_parse_contract_is_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_lute(monkeypatch)
+    parser = LuteSyntaxParser()
+    _replace_runner(
+        monkeypatch,
+        _ProcessResult(
+            returncode=0,
+            stdout=(
+                b'{"syntax_valid":true,"summary":{"globals":["game","task"],'
+                b'"access_chains":["game:GetService"],"calls":["game:GetService"],'
+                b'"bracket_index_count":1,"unresolved_call_count":0,"loop_kinds":["while"]},'
+                b'"program":{"kind":"block","statements":[{"kind":"local",'
+                b'"variables":[{"id":"1:7:1:14","name":"Players"}],"values":['
+                b'{"kind":"call","func":{"kind":"indexname","accessor":":",'
+                b'"name":"GetService","base":{"kind":"global","name":"game"}},'
+                b'"arguments":[{"kind":"string","raw":"\'Players\'"}]}]}]}}'
+            ),
+        ),
+    )
+
+    result = parser.analyze("local Players = game:GetService('Players')")
+
+    assert result.syntax_valid
+    assert result.summary == CstSummary(
+        globals=("game", "task"),
+        access_chains=("game:GetService",),
+        calls=("game:GetService",),
+        bracket_index_count=1,
+        unresolved_call_count=0,
+        loop_kinds=("while",),
+    )
+    declaration = result.program["statements"][0]
+    assert declaration["variables"][0] == {"id": "1:7:1:14", "name": "Players"}
+    assert declaration["values"][0]["func"]["name"] == "GetService"
+    _replace_runner(
+        monkeypatch,
+        _ProcessResult(
+            returncode=0,
+            stdout=b'{"syntax_valid":true,"summary":'
+            + _EMPTY_SUMMARY_JSON
+            + b',"program":'
+            + _EMPTY_PROGRAM_JSON
+            + b"}",
+        ),
+    )
+    assert parser.parse("local value = 1") == SyntaxCheckResult(syntax_valid=True)
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        b'{"globals":["z","a"],"access_chains":[],"calls":[],"bracket_index_count":0,"unresolved_call_count":0,"loop_kinds":[]}',
+        b'{"globals":[""],"access_chains":[],"calls":[],"bracket_index_count":0,"unresolved_call_count":0,"loop_kinds":[]}',
+        b'{"globals":["x"],"access_chains":[],"calls":[],"bracket_index_count":true,"unresolved_call_count":0,"loop_kinds":[]}',
+        b'{"globals":["x"],"access_chains":[],"calls":[],"bracket_index_count":0,"unresolved_call_count":0,"loop_kinds":["unknown"]}',
+    ],
+)
+def test_invalid_cst_summary_fails_closed(monkeypatch: pytest.MonkeyPatch, summary: bytes) -> None:
+    _install_fake_lute(monkeypatch)
+    parser = LuteSyntaxParser()
+    _replace_runner(
+        monkeypatch,
+        _ProcessResult(
+            returncode=0,
+            stdout=b'{"syntax_valid":true,"summary":'
+            + summary
+            + b',"program":'
+            + _EMPTY_PROGRAM_JSON
+            + b"}",
+        ),
+    )
+
+    with pytest.raises(LuteUnavailableError, match="invalid result"):
+        parser.analyze("local value = 1")
+
+
+@pytest.mark.parametrize(
+    "program",
+    [
+        b'{"kind":"block","statements":[{"kind":"while"}]}',
+        b'{"kind":"block","statements":[{"kind":"local","variables":[],"values":[{"kind":"global","name":""}]}]}',
+        b'{"kind":"block","statements":[{"kind":"local","variables":[{"id":"1:1:1:2","name":"x"}],"values":[{"kind":"local","binding":"not-a-span","name":"x"}]}]}',
+    ],
+)
+def test_invalid_normalized_program_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, program: bytes
+) -> None:
+    _install_fake_lute(monkeypatch)
+    parser = LuteSyntaxParser()
+    _replace_runner(
+        monkeypatch,
+        _ProcessResult(
+            returncode=0,
+            stdout=b'{"syntax_valid":true,"summary":'
+            + _EMPTY_SUMMARY_JSON
+            + b',"program":'
+            + program
+            + b"}",
+        ),
+    )
+
+    with pytest.raises(LuteUnavailableError, match="invalid result"):
+        parser.analyze("local value = 1")
 
 
 def test_nonzero_checker_exit_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -328,7 +448,10 @@ def _run_child(
     )
 
 
-_linux_only = pytest.mark.skipif(not _LINUX, reason="the memory limit is only implemented on Linux")
+_memory_limited_only = pytest.mark.skipif(
+    not _MEMORY_LIMITED,
+    reason="the memory limit is implemented only on Linux and Windows",
+)
 
 
 @pytest.fixture
@@ -336,7 +459,7 @@ def unlimited_launch(monkeypatch: pytest.MonkeyPatch) -> None:
     """Start stand-in children WITHOUT a memory limit, to test caps, timeout and cleanup.
 
     This replaces only the platform launcher, so it says nothing about the memory
-    limit; that is covered by the Linux-only tests below, which use the real one.
+    limit; platform-specific tests exercise the real limit.
     """
 
     def launch(
@@ -420,7 +543,7 @@ def test_timeout_kills_and_reaps_the_child(
     recorder.assert_reaped()
 
 
-@_linux_only
+@_memory_limited_only
 def test_memory_limit_stops_a_child_that_allocates_too_much(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -436,7 +559,7 @@ def test_memory_limit_stops_a_child_that_allocates_too_much(
     recorder.assert_reaped()
 
 
-@_linux_only
+@_memory_limited_only
 def test_memory_limit_still_lets_a_small_child_run(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = _Recorder(monkeypatch)
 
@@ -450,7 +573,7 @@ def test_memory_limit_still_lets_a_small_child_run(monkeypatch: pytest.MonkeyPat
     recorder.assert_reaped()
 
 
-@pytest.mark.parametrize("platform", ["win32", "darwin", "freebsd14"])
+@pytest.mark.parametrize("platform", ["darwin", "freebsd14"])
 def test_platform_without_an_enforced_memory_limit_refuses_to_run(
     monkeypatch: pytest.MonkeyPatch, platform: str
 ) -> None:
@@ -460,7 +583,7 @@ def test_platform_without_an_enforced_memory_limit_refuses_to_run(
     monkeypatch.setattr("sandbox.parser.sys.platform", platform)
     monkeypatch.setattr("sandbox.parser.subprocess.Popen", must_not_start)
 
-    with pytest.raises(LuteUnavailableError, match="only enforced on Linux"):
+    with pytest.raises(LuteUnavailableError, match="only enforced on Linux and Windows"):
         _run_bounded(
             [sys.executable, "-c", "pass"],
             cwd=Path.cwd(),
@@ -472,7 +595,7 @@ def test_platform_without_an_enforced_memory_limit_refuses_to_run(
         )
 
 
-@_linux_only
+@_memory_limited_only
 def test_spawn_failure_is_unavailable_and_leaves_no_process(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -497,4 +620,4 @@ def test_spawn_failure_is_unavailable_and_leaves_no_process(
 @pytest.mark.skipif(shutil.which("lute") is None, reason="Lute is not installed")
 def test_real_lute_cannot_start_under_an_absurdly_small_memory_limit() -> None:
     with pytest.raises(LuteUnavailableError):
-        LuteSyntaxParser(memory_limit_bytes=4 * _MIB)
+        LuteSyntaxParser(memory_limit_bytes=2 * _MIB)
