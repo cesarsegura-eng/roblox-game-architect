@@ -1,0 +1,31 @@
+services:
+  blender-mcp:
+    build:
+      context: ../../..
+      dockerfile: apps/blender_mcp_server/Dockerfile
+    env_file:
+      - ./server.env
+    environment:
+      BLENDER_MCP_HOST: 0.0.0.0
+      BLENDER_MCP_PORT: 8788
+      BLENDER_EXECUTABLE: /opt/blender/blender
+      BLENDER_MCP_OUTPUT_DIR: /var/lib/rga/artifacts
+      RGA_PROJECT_ROOT: /srv/rga
+    ports:
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - blender-artifacts:/var/lib/rga/artifacts
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 6g
+    cpus: 4
+    restart: unless-stopped
+
+volumes:
+  blender-artifacts:
