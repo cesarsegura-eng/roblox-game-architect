@@ -1,0 +1,16 @@
+[
+  {
+    "trigger_role": "collectible",
+    "action": "award_points",
+    "amount": 1
+  },
+  {
+    "trigger_role": "hazard",
+    "action": "eliminate"
+  },
+  {
+    "trigger_role": "landmark",
+    "action": "award_win",
+    "minimum_points": 3
+  }
+]

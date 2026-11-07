@@ -1,0 +1,720 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roblox-game-architect.dev/schemas/scene-recipe-v3.schema.json",
+  "title": "Roblox Game Architect Blender Scene Recipe v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "units",
+    "up_axis",
+    "objects"
+  ],
+  "anyOf": [
+    {
+      "properties": {
+        "objects": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "characters"
+      ],
+      "properties": {
+        "characters": {
+          "minItems": 1
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "characters"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 3
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "environment"
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"
+    },
+    "units": {
+      "const": "blender_units"
+    },
+    "up_axis": {
+      "const": "Z"
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/object"
+      }
+    },
+    "lights": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/light"
+      }
+    },
+    "characters": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/character"
+      }
+    },
+    "environment": {
+      "$ref": "#/$defs/environment"
+    }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "role",
+        "location",
+        "rotation_deg",
+        "scale"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"
+        },
+        "primitive": {
+          "enum": [
+            "cube",
+            "uv_sphere",
+            "ico_sphere",
+            "cylinder",
+            "cone",
+            "plane",
+            "torus"
+          ]
+        },
+        "role": {
+          "enum": [
+            "terrain",
+            "path",
+            "architecture",
+            "exterior",
+            "interior",
+            "entry",
+            "courtyard",
+            "roof",
+            "opening",
+            "furnishing",
+            "vegetation",
+            "rock",
+            "water",
+            "prop",
+            "landmark",
+            "character_blockout",
+            "collectible",
+            "hazard"
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "rotation_deg": {
+          "$ref": "#/$defs/rotation"
+        },
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "bevel": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "smooth_shading": {
+          "type": "boolean"
+        },
+        "material": {
+          "$ref": "#/$defs/material"
+        },
+        "mesh": {
+          "$ref": "#/$defs/mesh"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "primitive"
+          ],
+          "not": {
+            "required": [
+              "mesh"
+            ]
+          }
+        },
+        {
+          "required": [
+            "mesh"
+          ],
+          "not": {
+            "required": [
+              "primitive"
+            ]
+          }
+        }
+      ]
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_color",
+        "roughness"
+      ],
+      "properties": {
+        "base_color": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "roughness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "location": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "rotation": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -36000,
+          "maximum": 36000
+        },
+        {
+          "type": "number",
+          "minimum": -36000,
+          "maximum": 36000
+        },
+        {
+          "type": "number",
+          "minimum": -36000,
+          "maximum": 36000
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "location",
+        "rotation_deg",
+        "color",
+        "energy"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"
+        },
+        "type": {
+          "enum": [
+            "SUN",
+            "AREA",
+            "POINT",
+            "SPOT"
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "rotation_deg": {
+          "$ref": "#/$defs/rotation"
+        },
+        "color": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "energy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "distance": {
+          "type": "number",
+          "exclusiveMinimum": 0.001,
+          "maximum": 10000
+        },
+        "spot_size_deg": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 180
+        },
+        "angle_deg": {
+          "type": "number",
+          "exclusiveMinimum": 0.01,
+          "maximum": 45
+        }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "motion",
+        "location",
+        "scale"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"
+        },
+        "motion": {
+          "enum": [
+            "WALK",
+            "RUN",
+            "JUMP",
+            "IDLE"
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 4
+            },
+            {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 4
+            },
+            {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 4
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "mesh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vertices",
+        "faces"
+      ],
+      "properties": {
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 2000,
+          "items": {
+            "$ref": "#/$defs/localVertex"
+          }
+        },
+        "faces": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2000,
+          "items": {
+            "$ref": "#/$defs/face"
+          }
+        }
+      }
+    },
+    "localVertex": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        {
+          "type": "number",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        {
+          "type": "number",
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "face": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 32,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1999
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ambient_color",
+        "outdoor_ambient_color",
+        "brightness",
+        "clock_time",
+        "exposure_compensation",
+        "global_shadows",
+        "shadow_softness",
+        "atmosphere"
+      ],
+      "properties": {
+        "ambient_color": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "outdoor_ambient_color": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "brightness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "clock_time": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "exposure_compensation": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "global_shadows": {
+          "type": "boolean"
+        },
+        "shadow_softness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "atmosphere": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color",
+            "decay",
+            "density",
+            "glare",
+            "haze",
+            "offset"
+          ],
+          "properties": {
+            "color": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "decay": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "density": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "glare": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "haze": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "offset": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "clouds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "color",
+            "cover",
+            "density",
+            "enabled"
+          ],
+          "properties": {
+            "color": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "cover": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "density": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@
 `IterationBudget` is the AGENT_MAX_ITERATIONS guard. `SpendBudget` and
 `BudgetedLLMProvider` are the AGENT_MAX_USD_PER_SESSION hard cap: a paid call
 runs only if its provider gave a maximum-cost quote that fits the remainder.
-Neither guard is wired into a loop yet, because the loop does not exist.
+`AgentLoop` integrates both guards for every model call.
 """
 
 from __future__ import annotations

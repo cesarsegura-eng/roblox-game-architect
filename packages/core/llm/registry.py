@@ -21,11 +21,15 @@ def create_provider(name: str | None = None, env: Mapping[str, str] | None = Non
     process environment), falling back to `fake` when it is unset or blank.
     Pass `env` to avoid touching the global environment, e.g. in tests.
 
-    Only `fake` exists; real adapters register here when they are added.
+    The optional Anthropic adapter is constructed only when explicitly selected.
     """
     if name is None:
         source = os.environ if env is None else env
         name = source.get("LLM_PROVIDER", "").strip() or "fake"
     if name == "fake":
         return FakeProvider()
-    raise UnknownProviderError(f"unknown LLM provider {name!r}; available: 'fake'")
+    if name == "anthropic":
+        from .anthropic import AnthropicProvider
+
+        return AnthropicProvider(env=env)
+    raise UnknownProviderError(f"unknown LLM provider {name!r}; available: 'fake', 'anthropic'")

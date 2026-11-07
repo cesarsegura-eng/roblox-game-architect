@@ -1,0 +1,454 @@
+{
+  "schema_version": 3,
+  "name": "Rainforest Canopy Obby",
+  "units": "blender_units",
+  "up_axis": "Z",
+  "objects": [
+    {
+      "name": "Ridge floor",
+      "primitive": "cube",
+      "role": "terrain",
+      "location": [
+        0,
+        0,
+        -0.6
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        22,
+        18,
+        0.6
+      ]
+    },
+    {
+      "name": "Mossy trail",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        -1,
+        0.1
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        8
+      ],
+      "scale": [
+        2.8,
+        16,
+        0.18
+      ]
+    },
+    {
+      "name": "Creek bed",
+      "primitive": "cube",
+      "role": "terrain",
+      "location": [
+        -6,
+        0,
+        -0.2
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2,
+        18,
+        0.2
+      ]
+    },
+    {
+      "name": "Rain pool",
+      "primitive": "plane",
+      "role": "water",
+      "location": [
+        -6,
+        0,
+        0.05
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.7,
+        12,
+        0.02
+      ]
+    },
+    {
+      "name": "Canopy trunk north",
+      "primitive": "cylinder",
+      "role": "vegetation",
+      "location": [
+        -8,
+        3,
+        4
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        4
+      ]
+    },
+    {
+      "name": "Canopy crown north",
+      "primitive": "ico_sphere",
+      "role": "vegetation",
+      "location": [
+        -8,
+        3,
+        9
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        3,
+        3,
+        2.4
+      ]
+    },
+    {
+      "name": "Canopy trunk south",
+      "primitive": "cylinder",
+      "role": "vegetation",
+      "location": [
+        8,
+        4,
+        3.5
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        3.5
+      ]
+    },
+    {
+      "name": "Canopy crown south",
+      "primitive": "ico_sphere",
+      "role": "vegetation",
+      "location": [
+        8,
+        4,
+        8
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.7,
+        2.7,
+        2.2
+      ]
+    },
+    {
+      "name": "Lookout boulder",
+      "primitive": "ico_sphere",
+      "role": "rock",
+      "location": [
+        3,
+        7,
+        1.1
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        12
+      ],
+      "scale": [
+        2.5,
+        2,
+        1.4
+      ]
+    },
+    {
+      "name": "Rainfall lookout",
+      "primitive": "cube",
+      "role": "prop",
+      "location": [
+        3,
+        8,
+        2.4
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        3,
+        2.6,
+        0.25
+      ]
+    },
+    {
+      "name": "Canopy coin 1",
+      "primitive": "cylinder",
+      "role": "collectible",
+      "location": [
+        0.0,
+        -5.0,
+        1.4
+      ],
+      "rotation_deg": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.12
+      ]
+    },
+    {
+      "name": "Canopy coin 2",
+      "primitive": "cylinder",
+      "role": "collectible",
+      "location": [
+        0.0,
+        15.0,
+        1.4
+      ],
+      "rotation_deg": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.12
+      ]
+    },
+    {
+      "name": "Canopy coin 3",
+      "primitive": "cylinder",
+      "role": "collectible",
+      "location": [
+        0.0,
+        55.0,
+        1.8
+      ],
+      "rotation_deg": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.12
+      ]
+    },
+    {
+      "name": "Canopy Bridge",
+      "role": "path",
+      "primitive": "cube",
+      "location": [
+        0,
+        29,
+        0.1
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.8,
+        16,
+        0.18
+      ]
+    },
+    {
+      "name": "Summit Walkway",
+      "role": "path",
+      "primitive": "cube",
+      "location": [
+        0,
+        59,
+        0.8
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.8,
+        16,
+        0.18
+      ]
+    },
+    {
+      "location": [
+        2.4,
+        34.0,
+        0.65
+      ],
+      "name": "Lava vent obstacle",
+      "scale": [
+        1.4,
+        2.2,
+        0.25
+      ],
+      "primitive": "cube",
+      "role": "hazard",
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Ridge connector",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        14,
+        0.1
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.8,
+        14,
+        0.18
+      ]
+    },
+    {
+      "name": "Summit connector",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        44,
+        0.45
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.8,
+        14,
+        0.18
+      ]
+    },
+    {
+      "name": "Summit victory lookout",
+      "primitive": "cube",
+      "role": "landmark",
+      "location": [
+        0,
+        64,
+        2.0
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        3,
+        3,
+        0.3
+      ]
+    }
+  ],
+  "lights": [
+    {
+      "name": "Filtered canopy daylight",
+      "type": "SUN",
+      "location": [
+        0,
+        0,
+        16
+      ],
+      "rotation_deg": [
+        25,
+        0,
+        -20
+      ],
+      "color": [
+        0.7,
+        0.84,
+        0.72
+      ],
+      "energy": 1.4,
+      "angle_deg": 18
+    }
+  ],
+  "environment": {
+    "ambient_color": [
+      0.15,
+      0.19,
+      0.15
+    ],
+    "outdoor_ambient_color": [
+      0.34,
+      0.43,
+      0.34
+    ],
+    "brightness": 2.1,
+    "clock_time": 9.5,
+    "exposure_compensation": -0.2,
+    "global_shadows": true,
+    "shadow_softness": 0.45,
+    "atmosphere": {
+      "color": [
+        0.62,
+        0.75,
+        0.64
+      ],
+      "decay": [
+        0.25,
+        0.38,
+        0.28
+      ],
+      "density": 0.29,
+      "glare": 0,
+      "haze": 1.7,
+      "offset": 0.12
+    },
+    "clouds": {
+      "color": [
+        0.68,
+        0.75,
+        0.67
+      ],
+      "cover": 0.82,
+      "density": 0.55,
+      "enabled": true
+    }
+  }
+}

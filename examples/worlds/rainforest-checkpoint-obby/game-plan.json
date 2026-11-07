@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "title": "Rainforest Canopy Run",
+  "genre": "Exploration course",
+  "pitch": "Follow the canopy trail, collect three coins and reach the summit lookout.",
+  "target_players": "Players who enjoy short exploration rounds.",
+  "core_loop": ["Follow the trail and collect three coins.", "Touch the summit lookout and start another round."],
+  "systems": [
+    {"name": "Canopy coins", "purpose": "Give one point per coin per player each round.", "implementation_stage": "blockout"},
+    {"name": "Lava vent", "purpose": "Eliminate a player who touches the vent.", "implementation_stage": "blockout"},
+    {"name": "Summit finish", "purpose": "Award a win for reaching the summit with three points.", "implementation_stage": "blockout"}
+  ],
+  "playable_slice": {
+    "gameplay_mode": "rule_game",
+    "gameplay_rules": [
+      {"trigger_role": "collectible", "action": "award_points", "amount": 1},
+      {"trigger_role": "hazard", "action": "eliminate"},
+      {"trigger_role": "landmark", "action": "award_win", "minimum_points": 3}
+    ],
+    "included_systems": ["Canopy coins", "Lava vent", "Summit finish"],
+    "deferred_systems": [],
+    "limitations": ["Points and wins belong to the current server session."]
+  },
+  "world_brief": "A connected rainforest path leads over a canopy bridge to a summit lookout. Place three coins along the route and a lava vent beside the trail.",
+  "milestones": ["Build the route.", "Place coins, the vent and the lookout.", "Play two rounds with two players."],
+  "validation_goals": ["Each player collects each coin once per round.", "A win requires three points.", "The vent eliminates the player on contact."]
+}

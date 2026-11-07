@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:roblox-game-architect:game-plan-v1",
+  "title": "Roblox Game Architect Game Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "title",
+    "genre",
+    "pitch",
+    "target_players",
+    "core_loop",
+    "systems",
+    "world_brief",
+    "milestones",
+    "validation_goals"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "genre": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "pitch": { "type": "string", "minLength": 1, "maxLength": 600 },
+    "target_players": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "core_loop": {
+      "type": "array", "minItems": 2, "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "systems": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "purpose", "implementation_stage"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "implementation_stage": { "enum": ["blockout", "later"] }
+        }
+      }
+    },
+    "world_brief": { "type": "string", "minLength": 40, "maxLength": 8192 },
+    "milestones": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    },
+    "validation_goals": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    }
+  }
+}
