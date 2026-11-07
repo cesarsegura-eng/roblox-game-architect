@@ -213,9 +213,10 @@ acknowledged; whether a state with only one of the result and its idempotency re
 stored can exist, and what the API does with it; and whether the replay cache stores
 error responses.
 
-The storage engine remains undecided (`ARCHITECTURE.md`, section 6). These durability
-properties do not depend on it, but they are requirements the engine must meet. A
-start-up that finds items `delivered` applies P4 and the lock (section 7).
+The storage engine decision is recorded in
+[ADR-0016](0016-sqlite-lifecycle-store.md). The pending result-acknowledgement,
+replay-cache, and recovery semantics in this proposed record remain unresolved.
+A start-up that finds items `delivered` applies P4 and the lock (section 7).
 
 ### 4. Three separate records
 

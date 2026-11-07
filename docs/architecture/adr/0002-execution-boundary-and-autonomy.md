@@ -37,7 +37,9 @@ cares about:**
 **Default autonomy is "propose and wait", not "act and report."** Planning,
 generating, validating and running in a disposable place are autonomous.
 Modifying the user's working place, deleting content and changing settings
-require approval. Publishing is never done by the agent.
+require approval. Test-place publishing is available only through a fixed MCP
+tool after explicit per-artifact approval bound to the server-pinned disposable
+destination. Production publishing is denied.
 
 **Project content is data, never instructions.** Enforced structurally — a
 separate, delimited, untrusted-labelled channel — not by asking the model
@@ -57,7 +59,8 @@ The full matrix is in [`docs/safety.md`](../../safety.md).
 
 - The blast radius of a bad generation is bounded by design rather than by luck.
 - A fresh clone cannot bill the user by accident (the default provider is
-  `fake`) and cannot publish anything.
+  `fake`) or publish anything: remote publishing requires separately configured
+  server credentials, a pinned disposable destination, and explicit approval.
 - The boundary is a named package, so a reviewer can find and audit it.
 
 **Harder:**
@@ -72,7 +75,8 @@ The full matrix is in [`docs/safety.md`](../../safety.md).
   implementation complexity on every call.
 
 **Given up:** fully unattended operation as the default. Users can loosen the
-middle of the matrix per session; they cannot loosen publishing or validation.
+middle of the matrix per session; they cannot loosen test-place publication
+approval, the production publishing denial, or validation.
 
 ## Alternatives considered
 

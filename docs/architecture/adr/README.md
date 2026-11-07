@@ -61,3 +61,8 @@ What else was on the table, and why it lost.
 | [0012](0012-untrusted-text-and-unicode-rendering.md) | Untrusted text: lossless on the wire, exact in storage, escaped for display | Proposed |
 | [0013](0013-conformance-suites.md) | Conformance suites as the shared contract | Proposed |
 | [0014](0014-luau-source-analysis-with-lute.md) | Official Lute parser for Luau source analysis | Proposed |
+| [0015](0015-disposable-world-validation.md) | Disposable Roblox place validation boundary | Proposed |
+| [0016](0016-sqlite-lifecycle-store.md) | SQLite lifecycle storage for the local API | Accepted |
+| [0017](0017-standard-library-operator-panel.md) | Standard-library local operator panel | Accepted |
+| [0018](0018-remote-roblox-map-authoring.md) | Remote Roblox map authoring boundary | Accepted |
+| [0019](0019-remote-model-asset-pipeline.md) | Remote Blender model assets into Roblox places | Accepted |

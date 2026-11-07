@@ -26,9 +26,14 @@ It is a thin client that:
 - applies validated, approved edits it is handed,
 - runs playtests and reports results.
 
-LLM API keys live only in the API service's environment. The plugin
-authenticates to the local API with a scoped token (`PLUGIN_AUTH_TOKEN`), and
-that token's privileges are limited to the operations above.
+LLM API keys live only in the API service's environment. The Studio plugin
+authenticates to the API with its token (`PLUGIN_AUTH_TOKEN`), which is separate
+from the provider key. The standard Blender workflow connects the API to a
+dedicated remote MCP server with `BLENDER_MCP_BEARER_TOKEN`; Blender runs on
+that server, so the user's PC needs no Blender installation. An optional local
+authoring extension may use `BLENDER_AUTH_TOKEN` for the loopback route that
+generates validated scene recipes. Neither Blender token authorizes Studio
+edits or asset publishing, and neither is sent to the LLM provider.
 
 Secrets are redacted from the run log and from any error text that reaches the
 UI.
@@ -44,6 +49,8 @@ moment of change.
 
 - A leaked or decompiled plugin exposes a scoped local token, not a billable
   provider key.
+- The remote Blender service receives only validated recipe data and its own
+  scoped MCP credential; it never receives the billable provider key.
 - Prompt and agent logic changes ship by pulling the repository, with no plugin
   reinstall. Given how slowly plugins update in practice, this matters.
 - The component with the most privilege has the least logic, so there is less in
@@ -54,7 +61,8 @@ moment of change.
 - The API service must be running for the plugin to do anything. A user with
   Studio open and no service gets an inert plugin, and that needs clear error
   messaging.
-- More moving parts in the local setup than a self-contained plugin would need.
+- The API and remote Blender MCP service must be reachable for their respective
+  workflows.
 - Every capability the plugin needs has to be expressed in the protocol first,
   which slows plugin development deliberately.
 

@@ -34,9 +34,11 @@ version change.
    executable, or loaded as a module by Lute. Lute is a parser dependency, not an
    execution sandbox for Roblox code.
 3. A missing or mismatched Lute executable, a parser error, or an analyzer error
-   fails validation closed. The sandbox implementation must bound source size,
-   CPU time and memory, and run the checker with the least OS privileges
-   available. The Lute process itself does not provide the isolation boundary.
+   fails validation closed. The sandbox implementation bounds source size, CPU
+   time, output and memory. Linux uses an address-space limit before `exec`;
+   Windows assigns the suspended child to a memory-limited Job Object before
+   resuming its primary thread. Unsupported platforms fail closed. The Lute
+   process itself does not provide the isolation boundary.
 4. Any Lute version change is explicit. Before updating the pin, the sandbox
    conformance corpus must pass against the candidate version, including syntax
    failures and AST/CST cases used by every security rule.

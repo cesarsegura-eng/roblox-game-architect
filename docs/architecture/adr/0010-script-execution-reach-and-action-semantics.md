@@ -103,11 +103,13 @@ needs to imply the opposite.
    scripts, and the effect of `RunContext`, are **[Assumption]**s.
 6. `declared_scope` is lexical (section 10). It is not a statement about behaviour.
 7. The protocol keeps no durable record of who created a script.
-8. None of this is enforced yet. `packages/sandbox` contains only a syntax-only
-   Lute bridge ([ADR-0014](0014-luau-source-analysis-with-lute.md)), which enforces
-   none of it, and the plugin does not exist; the reference checks live only in
-   `packages/protocol/tests/`. (When this record was written, `packages/sandbox`
-   did not exist.)
+8. The proposed G2-G5 protocol assertions and the policy in this ADR are not
+   implemented in the protocol or API. The optional Studio plugin now exists,
+   but applies only the reviewed script-free Workspace subset; it does not make
+   these assertions or execute model-authored source. `packages/sandbox` has a
+   Lute syntax bridge, bounded CST, and a restricted blockout policy, not the
+   general script-execution gate described here. The reference checks still
+   cover only their declared subset in `packages/protocol/tests/`.
 
 ### 2. Script, LocalScript and ModuleScript are separate operations
 
@@ -160,9 +162,9 @@ refuse to apply an edit whose premise is false.
 ### 5. Approval policy
 
 **[API]** The following is the intended default policy. It is **not yet applied**:
-it is to be enforced by the API and `packages/sandbox`, whose policy checks do not
-exist yet (the package has only a syntax-only Lute bridge,
-[ADR-0014](0014-luau-source-analysis-with-lute.md)). It can be changed without
+it would be enforced by the API and `packages/sandbox`; the current API and
+restricted blockout policy do not implement this proposal
+([ADR-0014](0014-luau-source-analysis-with-lute.md)). It can be changed without
 changing the wire format. Loosening it changes approval *granularity*; it never
 loosens gate 1 of [ADR-0002](0002-execution-boundary-and-autonomy.md), the static
 validation of source, which applies to every source that enters through either
@@ -293,10 +295,10 @@ otherwise, but a reader of the scope rules could assume it.
 
 ## What changes, and what does not exist yet
 
-**Nothing in this record is implemented.** The schemas, vectors and tests in the
-repository describe the state before it. The following changes belong to one
-protocol pull request that must land **before** the tag `protocol-v1.0`, because
-after the tag they are a major version:
+**This proposal is not implemented in the protocol.** The schemas, vectors and
+tests in the repository still describe the pre-proposal contract. These changes
+would belong to one protocol pull request that must land **before** the tag
+`protocol-v1.0`, because after the tag they are a major version:
 
 - `edit.action.json`: split `set_script_source` / `set_module_source`; add
   `expect_enabled`; add `contains_scripts` to `reparent`.
@@ -354,14 +356,15 @@ playtest now say what the protocol does and does not guarantee, and point here.
   and snapshots are bounded (2,000 entries).
 - Live edits and cross-service code moves are denied by default, which is friction
   for users who want them.
-- The default policy is not enforced by anything until the policy checks of
-  `packages/sandbox` exist; today it has only a syntax-only Lute bridge.
+- The default policy is not enforced by the API. `packages/sandbox` now has a
+  scoped scene-blockout policy, but it does not implement this general source
+  policy or authorize execution.
 - `contains_scripts` needs a subtree scan by the plugin; its bound is in ADR-0011.
 - Every statement tagged **[Assumption]** may turn out wrong when exercised in
   Studio, and G2 in particular rests on it.
-- Without a disposable place, generated code cannot be run both safely and
-  autonomously. The vertical slice of stage 4 depends on a design that does not
-  exist.
+- A fixed recipe-only map harness exists, but no configured disposable-place
+  evidence establishes safe autonomous execution of model-authored code. That
+  remains a stage 4 gate.
 
 ## Assumptions to validate in Roblox Studio
 
