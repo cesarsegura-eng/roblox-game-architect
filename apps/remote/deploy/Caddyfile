@@ -1,0 +1,36 @@
+{$BLENDER_DOMAIN} {
+	@blender_mcp path /mcp
+	@blender_artifacts path /artifacts/*
+	handle @blender_mcp {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy blender-mcp:8788
+	}
+	handle @blender_artifacts {
+		reverse_proxy blender-mcp:8788
+	}
+	handle {
+		respond "not found" 404
+	}
+}
+
+{$ROBLOX_DOMAIN} {
+	@downloads {
+		path /downloads/*
+		method GET
+	}
+	handle @downloads {
+		reverse_proxy roblox-mcp:8790
+	}
+	@roblox_mcp path /mcp
+	handle @roblox_mcp {
+		request_body {
+			max_size 28MB
+		}
+		reverse_proxy roblox-mcp:8790
+	}
+	handle {
+		respond "not found" 404
+	}
+}
