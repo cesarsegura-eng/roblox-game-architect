@@ -237,25 +237,29 @@ def _serve(args: argparse.Namespace) -> None:
 
 
 def _queue(args: argparse.Namespace) -> None:
+    credential = _credential()
     item = json.loads(Path(args.file).read_text(encoding="utf-8"))
-    work_id = _service().queue(_credential(), item)
+    work_id = _service().queue(credential, item)
     print(f"queued {work_id}; it is delivered only after `approve {work_id}`")
 
 
 def _approve(args: argparse.Namespace) -> None:
-    _service().approve(_credential(), args.work_id)
+    credential = _credential()
+    _service().approve(credential, args.work_id)
     print(f"approved {args.work_id}")
 
 
 def _attest(args: argparse.Namespace) -> None:
+    credential = _credential()
     print(ATTESTATION_WARNING)
-    _service().attest(_credential(), args.actor, ATTESTATION_WARNING, args.review)
+    _service().attest(credential, args.actor, ATTESTATION_WARNING, args.review)
     print("lock released; planning resumes once a fresh snapshot arrives")
 
 
 def _status(args: argparse.Namespace) -> None:
     del args
-    print(json.dumps(_service().status(_credential()), indent=2))
+    credential = _credential()
+    print(json.dumps(_service().status(credential), indent=2))
 
 
 def build_parser() -> argparse.ArgumentParser:
