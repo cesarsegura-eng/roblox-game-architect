@@ -24,7 +24,8 @@ made, and no other program.
 > infrastructure.
 >
 > The end user needs **Roblox Studio**, where the game is made, and no other
-> program. See [the status page](docs/status.md) and [the roadmap](#roadmap).
+> program. See [the status page](docs/status.md), [the roadmap](#roadmap) and the
+> [runbook that turns written into verified](docs/runbook-live-verification.md).
 
 ## What it is meant to do
 

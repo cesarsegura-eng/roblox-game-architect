@@ -85,6 +85,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tests/test_api_e2e.py`: the loop over real HTTP, plus the checks that lifecycle state
   survives a new process and that `DATA_DIR` never holds the credential.
 
+- `docs/runbook-live-verification.md`: the ordered steps, and the proof to keep, that
+  turn what is written into what is verified; each needs a Studio session, a hosted
+  server, a model key or a Roblox test universe.
+- `docs/status.md`: the per-stage detail moved out of the README roadmap.
+- Tests for the Anthropic adapter (stubbed transport), the spatial checks and the
+  operator CLI; `tests/test_studio_plugin_install.py` keeps the plugin a single file.
+- The git tag `protocol-v1.0`, set locally: the ADR-0011 choices the API implements
+  are recorded as decided, none adds a field or code to the wire, so the schemas are
+  frozen.
+
 ### Changed
 
 - `.gitignore` extended to cover Roblox binaries (`*.rbxl`, `*.rbxm`), Rojo and
@@ -136,7 +146,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `packages/protocol/README.md` now say that no protocol operation enables a script
   and that this does not guarantee agent-authored code cannot execute (ADR-0010).
 
+- The user is told to install Roblox Studio and no other program: the documents and
+  skills no longer call Studio optional. The Studio plugin installs as one file; Rojo
+  and rokit are for contributors.
+- ADR-0011 records its decisions of 2026-11-07 (result comparison with the order
+  significant, a byte-level retry digest, `invalid_message` for a reused `message_id`,
+  snapshot handling, attestation scope). It stays `Proposed` because no plugin has run
+  against Studio.
+
 ### Fixed
+- The plugin endpoint no longer passes a negative or non-numeric `Content-Length` to
+  `read` (`read(-1)` blocks until the client hangs up); it answers 400 or 413 and
+  closes, and the handler has a 30 s socket timeout.
+- The operator CLI checks `PLUGIN_AUTH_TOKEN` before creating the data directory.
+- The Windows memory-limited Lute process opens the child by PID instead of reading the
+  private `Popen._handle`.
+- Lint, formatting and CRLF line endings that would have failed CI.
 
 - Removed a duplicate, mistyped git remote (`orgin`).
 - `.gitignore` had CRLF line endings, contradicting `.editorconfig`.
@@ -155,6 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-No end-to-end engine exists yet. The core LLM and budget foundations are
-implemented and tested as libraries, but there is no agent loop, real provider
-adapter, API, sandbox, Studio plugin or web application to run.
+The engine does not yet build a game end to end. The pieces exist and are tested
+locally (protocol, API, agents, a restricted source policy, remote Blender and Roblox
+services, an operator panel and a Studio plugin), but nothing has been exercised
+against live Roblox, a hosted server or a real model key. Model-written gameplay Luau
+is never executed. See `docs/status.md` and `docs/runbook-live-verification.md`.
