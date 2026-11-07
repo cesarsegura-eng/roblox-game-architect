@@ -37,15 +37,21 @@ Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
 # listed, so they are never installed as a package. Add entries here as
 # packages/ gains real code.
 [tool.setuptools]
-packages = ["api", "core", "core.llm", "sandbox"]
+packages = ["api", "core", "core.llm", "sandbox", "apps", "apps.blender_mcp_server", "apps.roblox_mcp_server"]
 
 [tool.setuptools.package-dir]
 api = "packages/api"
 core = "packages/core"
 sandbox = "packages/sandbox"
+apps = "apps"
+"apps.blender_mcp_server" = "apps/blender_mcp_server"
+"apps.roblox_mcp_server" = "apps/roblox_mcp_server"
 
 [tool.setuptools.package-data]
-sandbox = ["lute/*.luau"]
+apps = ["web/*.html", "web/*.css", "web/*.js"]
+"apps.roblox_mcp_server" = ["harness.luau", "model_import_harness.luau"]
+sandbox = ["lute/*.luau", "luau_policy.json"]
+core = ["schemas/*.json", "skillpacks/**/*.md", "reference_scenes.json"]
 
 [tool.ruff]
 line-length = 100
@@ -78,9 +84,10 @@ select = [
 known-first-party = ["core", "api", "protocol", "sandbox"]
 
 [tool.pytest.ini_options]
-# Unit tests live beside their package; tests/ holds integration and e2e
-# (ADR-0001). Both are collected here.
-testpaths = ["packages", "tests"]
+# Unit tests live beside packages and applications; tests/ holds integration
+# and e2e (ADR-0001). Collect all three trees so service tests cannot drift out
+# of the default local and CI runs.
+testpaths = ["apps", "packages", "tests"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
   "integration: crosses a component boundary",

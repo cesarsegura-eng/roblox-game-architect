@@ -31,7 +31,7 @@ Confirm none of these is weakened by this PR (see
 - [ ] Generated code is still statically validated before it runs
 - [ ] Project content is still treated as data, never as instructions
 - [ ] No API key, token or credential reaches the Studio plugin or a log
-- [ ] Publishing to Roblox remains a human action
+- [ ] Test-place publishing requires per-operation human approval bound to the exact artifact and server-pinned destination; production publishing remains denied
 - [ ] Iteration and spend caps remain enforced in `packages/core`
 
 If this PR intentionally changes one of them, it needs an ADR that supersedes

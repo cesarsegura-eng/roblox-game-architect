@@ -48,6 +48,12 @@ jobs:
         # fails instead of silently resolving something else.
         run: uv sync --locked --extra dev
 
+      - name: Check agent-facing skills match core skillpacks
+        run: uv run python tools/package_agent_skills.py --check
+
+      - name: Check packaged MCP reference scenes
+        run: uv run python tools/package_reference_scenes.py --check
+
       - name: Lint
         run: uv run ruff check .
 
@@ -58,7 +64,12 @@ jobs:
         # No guard on the exit code. tests/test_scaffolding.py always collects,
         # so exit code 5 ("no tests collected") means something is broken and
         # must fail the build.
-        run: uv run pytest
+        run: uv run python -m pytest
+
+      - name: Build and audit Roblox MCP wheel resources
+        run: |
+          uv build --wheel --out-dir dist
+          uv run python tools/check_wheel_resources.py dist/*.whl
 
   luau:
     name: Luau lint and format
@@ -95,6 +106,16 @@ jobs:
         if: steps.check.outputs.found == 'true'
         run: stylua --check apps/studio-plugin/src
 
+      - name: Build installable Studio plugin
+        if: steps.check.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          test "$(rojo --version)" = "Rojo 7.7.1"
+          mkdir -p dist
+          rojo build apps/studio-plugin/default.project.json --output dist/rga-studio-plugin.rbxmx
+          test -s dist/rga-studio-plugin.rbxmx
+          grep -q '<token name="RunContext">3</token>' dist/rga-studio-plugin.rbxmx
+
   sandbox-parser:
     name: Pinned Lute syntax bridge
     runs-on: ubuntu-latest
@@ -118,6 +139,155 @@ jobs:
 
       - name: Exercise the real Lute parser
         run: uv run pytest -m integration packages/sandbox/tests/test_lute_integration.py
+
+      - name: Build and exercise the rainforest round with simulated players
+        run: |
+          scene=examples/worlds/rainforest-checkpoint-obby
+          uv run python tools/build_roblox_place.py "$scene/scene-recipe.json" dist/rainforest.rbxlx \
+            --gameplay-mode rule_game --gameplay-rules "$scene/gameplay-rules.json"
+          uv run python tools/check_rainforest_round.py dist/rainforest.rbxlx
+
+  sandbox-windows:
+    name: Windows sandbox process limits
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python package
+        run: uv sync --locked --extra dev
+
+      - name: Check Windows Job Object memory bounds and process cleanup
+        run: uv run pytest packages/sandbox/tests/test_parser.py -q
+
+  blender-mcp-container:
+    name: Remote Blender MCP runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Package the optional Blender extension
+        run: |
+          set -euo pipefail
+          python3 tools/package_blender_extension.py
+          test -s dist/roblox-game-architect-blender-*.zip
+
+      - name: Build and smoke-test the hardened Compose deployment
+        run: |
+          set -euo pipefail
+          compose=(docker compose --project-name rga-blender-mcp-ci \
+            --file apps/blender_mcp_server/deploy/compose.yaml)
+          token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')"
+          printf 'BLENDER_MCP_BEARER_TOKEN=%s\nBLENDER_MCP_ALLOWED_ORIGINS=\n' \
+            "$token" > apps/blender_mcp_server/deploy/server.env
+          cleanup() {
+            "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+            rm -f apps/blender_mcp_server/deploy/server.env
+          }
+          trap cleanup EXIT
+
+          "${compose[@]}" config --quiet
+          "${compose[@]}" build blender-mcp
+          "${compose[@]}" run --rm --no-deps \
+            --entrypoint /opt/blender/blender blender-mcp \
+            --background --factory-startup \
+            --python tools/smoke_blender_extension.py -- \
+            --recipe examples/worlds/mistral-coast-lookout-v2/scene-recipe.json \
+            --output /tmp/rga-extension-smoke.glb
+          "${compose[@]}" up --detach blender-mcp
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8788/healthz >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              "${compose[@]}" logs blender-mcp
+              exit 1
+            fi
+            sleep 2
+          done
+          BLENDER_MCP_URL=http://127.0.0.1:8788/mcp \
+            BLENDER_MCP_BEARER_TOKEN="$token" \
+            python tools/smoke_remote_blender_mcp.py
+
+  roblox-validation-mcp-container:
+    name: Remote Roblox validation MCP runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the fixed-harness Open Cloud MCP image
+        run: docker build --file apps/roblox_mcp_server/Dockerfile --tag rga-roblox-validation-mcp:ci .
+
+      - name: Smoke-test authenticated MCP contract without Open Cloud
+        run: |
+          set -euo pipefail
+          token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')"
+          cleanup() { docker rm --force rga-roblox-validation-mcp-smoke >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          docker run --detach --name rga-roblox-validation-mcp-smoke \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --memory 512m --cpus 1 --pids-limit 64 --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --publish 127.0.0.1:8790:8790 \
+            --env RGA_ROBLOX_MCP_TOKEN="$token" \
+            --env RGA_ROBLOX_MCP_SMOKE=I_ACCEPT_FAKE_VALIDATOR \
+            --env RGA_ROBLOX_MCP_HOST=0.0.0.0 \
+            rga-roblox-validation-mcp:ci \
+            python -m apps.roblox_mcp_server.smoke_server
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8790/healthz >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs rga-roblox-validation-mcp-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+
+          ROBLOX_MCP_URL=http://127.0.0.1:8790/mcp \
+            ROBLOX_MCP_BEARER_TOKEN="$token" \
+            python3 tools/smoke_remote_roblox_mcp.py
+
+  remote-mcp-deployment:
+    name: Unified remote MCP deployment config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Compose and TLS proxy configuration
+        run: |
+          set -euo pipefail
+          deployment=apps/remote/deploy
+          blender_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')"
+          roblox_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(36))')"
+          cleanup() { rm -f "$deployment/.env" "$deployment/blender.env" "$deployment/roblox.env"; }
+          trap cleanup EXIT
+
+          cat > "$deployment/.env" <<'EOF'
+          BLENDER_DOMAIN=blender.example.test
+          ROBLOX_DOMAIN=roblox.example.test
+          EOF
+          printf 'BLENDER_MCP_BEARER_TOKEN=%s\n' "$blender_token" > "$deployment/blender.env"
+          printf 'RGA_ROBLOX_MCP_TOKEN=%s\n' "$roblox_token" > "$deployment/roblox.env"
+
+          docker compose --project-name rga-remote-mcp-ci \
+            --file "$deployment/compose.yaml" config --quiet
+
+          docker run --rm \
+            --volume "$PWD/$deployment/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            --env BLENDER_DOMAIN=blender.example.test \
+            --env ROBLOX_DOMAIN=roblox.example.test \
+            caddy:2.11.8-alpine \
+            validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
   hygiene:
     name: Repository hygiene (current tree only)

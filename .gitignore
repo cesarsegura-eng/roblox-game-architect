@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.tools/
 venv/
 .pytest_cache/
 .ruff_cache/
@@ -43,6 +44,15 @@ apps/studio-plugin/Packages/
 apps/studio-plugin/ServerPackages/
 apps/studio-plugin/DevPackages/
 sourcemap.json
+
+# ---------- Blender local work ----------
+# Scene files are large binary build artifacts; hand-authored recipes remain JSON.
+*.blend
+*.blend1
+apps/blender_mcp_server/deploy/server.env
+/apps/remote/deploy/.env
+/apps/remote/deploy/blender.env
+/apps/remote/deploy/roblox.env
 
 # ---------- Generated projects and agent runtime data ----------
 # Games produced by the agent live outside version control (see ADR-0004).

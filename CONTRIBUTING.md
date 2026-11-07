@@ -27,7 +27,7 @@ uv sync --locked --extra dev
 ```
 
 ```bash
-uv run pytest
+uv run python -m pytest
 ```
 
 That last command runs `tests/test_scaffolding.py`, which checks the repository
@@ -98,7 +98,7 @@ uv run ruff format --check .
 ```
 
 ```bash
-uv run pytest
+uv run python -m pytest
 ```
 
 The Luau checks only do something once `apps/studio-plugin/src` has files; CI

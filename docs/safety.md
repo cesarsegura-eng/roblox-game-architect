@@ -1,18 +1,36 @@
 # Safety model
 
-Roblox Game Architect writes code and runs it inside the user's Roblox Studio
-session. This document defines what the agent is allowed to do, what stops it,
-and what always requires a human. It is the reference for
+Roblox Game Architect is designed to author and validate games through
+separately hosted MCP services. The user needs Roblox Studio, where the game is
+made, and no other program: not Blender, not a local server. This document defines what the
+agent is allowed to do, what stops it, and what always requires a human. It is
+the reference for
 [`SECURITY.md`](../SECURITY.md) and for the invariants in
 [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
-**Status: mostly design, with a few foundations implemented.** `packages/core`
-contains LLM framing and standalone iteration/spend guards, but no agent loop
-uses them. `packages/sandbox` contains only a syntax-only bridge to the pinned
-official Lute 1.0.0 parser. There is no CST policy analyzer, API allowlist, memory
-bound, complete Gate 1, approval gate, execution isolation or disposable-place
-mechanism, and no API service, Studio plugin or web application, so this document
-does not describe a working safety boundary.
+**Status: foundations plus a restricted static source gate.** `packages/core`
+contains LLM framing and a bounded generate/validate/retry loop that requires
+an injected static policy validator. `packages/sandbox` contains the pinned
+official Lute 1.0.0 syntax bridge, normalized bounded CST, a reviewed allowlist
+in [`packages/sandbox/luau_policy.json`](../packages/sandbox/luau_policy.json),
+and a static policy for scoped scene blockouts. It is not a general gameplay
+Luau policy. There is no full agent workspace or general generated-code
+execution isolation. The place builder has project-owned Treasure Hunt and Obby
+Course templates; they accept no model-supplied source and artifact validation
+checks their exact source and location. Obby tracks ordered checkpoints and
+session-only wins. Obby and Treasure Hunt support optional lethal touch hazards
+selected by the validated `hazard` scene role. A third fixed interpreter,
+`rule_game`, reads bounded touch-rule data for points, healing, lethal hazards,
+and threshold-based wins; it is not model-authored Luau. None of these modes
+saves progression. A fixed,
+recipe-only remote Roblox map harness exists, but
+its disposable-place runtime gates are not configured. The user's existing
+agent connects directly to the separately hosted MCP tools; the optional Studio
+plugin and operator panel support a local compatibility workflow. Persistent
+Roblox asset creation and test-place publication use separate digest-bound
+prepare/confirm operations. The RGA orchestration API and local operator panel
+are not required by the agent-first workflow. Model-authored gameplay and
+general playtesting remain unavailable.
 
 ## 1. Threat model
 
@@ -36,49 +54,83 @@ What we are defending against, in order of severity:
 ## 2. The execution boundary
 
 Generated Luau is to pass three gates before it affects anything the user cares
-about. **None is complete.** A syntax-only Lute bridge exists in
-`packages/sandbox`, but the Gate 1 policy is not implemented. `packages/sandbox` is the single
+about. **The Luau gates are incomplete.** A Lute syntax bridge, bounded normalized
+CST, a declarative action policy, and a restricted source policy for scene
+blockouts exist in `packages/sandbox`. General gameplay source validation and
+generated-code execution remain unimplemented. Fixed-recipe remote map
+validation is implemented, but its live disposable-place gates remain pending.
+`packages/sandbox` is the single
 authority for gates 1 and 3 — no other component validates, not even partially.
 
-### Gate 1 — static validation *(planned, incomplete; syntax bridge exists)*
+### Gate 1 — static validation *(partial; scoped scene subset implemented)*
 
-The official Lute 1.0.0 syntax bridge is implemented, as recorded in
-[`ADR-0014`](architecture/adr/0014-luau-source-analysis-with-lute.md). It only
-reports whether parsing succeeds. The CST analyzer, API allowlist, structural
-rules and memory limit are not implemented. This does not change the strict
-JSON parser decision in ADR-0009.
+The official Lute 1.0.0 syntax bridge, bounded normalized CST, and a restricted
+source policy are implemented, as recorded in
+[`ADR-0014`](architecture/adr/0014-luau-source-analysis-with-lute.md). The
+source policy accepts only bounded Parts, WedgeParts, Folders, or Models;
+approved constructors and typed properties; and object paths under the task's
+declared Workspace scope. The version-controlled allowlist is
+[`packages/sandbox/luau_policy.json`](../packages/sandbox/luau_policy.json).
+Loops, dynamic indexes, script classes, arbitrary calls, unknown CST nodes,
+unparented objects, and out-of-scope paths are rejected. This constrained
+blockout subset is not a general gameplay API allowlist. The parser bounds input
+size, wall time, process output and memory on Linux and Windows; it refuses to
+run on other platforms where the memory bound is not implemented. Windows starts
+Lute suspended and assigns it to a memory-limited Job Object before resuming its
+primary thread. No source is executed by this gate. This does not change the
+strict JSON parser decision in ADR-0009.
 
-To be performed by `packages/sandbox` before execution, never skippable:
+Remaining Gate 1 work in `packages/sandbox`, never skippable before execution:
 
-- **API allowlist.** Only explicitly permitted Roblox APIs may appear. The
-  allowlist is a file under version control, so changing it is a reviewable
-  diff. Denied by default: `HttpService`, `DataStoreService`, `MarketplaceService`,
-  anything that publishes, anything that writes to the filesystem, and
-  `require` of external assets.
-- **Structural checks.** No dynamic code construction (`loadstring` and
-  equivalents), no unbounded loops without a yield, no obfuscated identifiers.
-- **Blast-radius check.** The set of instances the script will touch must be a
-  subset of what the current task declared.
+- **General API allowlist.** The current file covers scoped blockout constructors
+  and properties only; gameplay APIs, services, and methods are not supported.
+  Network, persistence, publishing, filesystem access, and external `require`
+  remain denied by default.
+- **Structural checks.** The current subset rejects loops, dynamic code, dynamic
+  indexing, unrecognized calls, and unsupported CST nodes. Broader rules such as
+  yielding-loop analysis remain open.
+- **Blast-radius check.** New object paths must be under the declared Workspace
+  subtree. Existing-instance mutation and broader scope semantics are unsupported.
 
 A failure here returns to the builder as feedback. It does not prompt the user,
 and it does not get overridden.
 
-### Gate 2 — the approval gate *(planned, not implemented)*
+### Gate 2 — the approval gate *(partly implemented)*
 
-A human confirms before anything is applied to a real place. See section 3.
-It will live in `packages/api`, where the work queue that feeds the plugin
-already has to sit ([ADR-0007](architecture/adr/0007-plugin-initiated-http-transport.md)).
+The CLI and operator panel let an operator queue and approve supported actions.
+The bounded Studio blockout generator can create a script-free map action and
+queue it for review; the optional local Studio plugin requires a separate Apply
+click before it mutates the open place. The remote MCP path needs a separate
+approval contract and isolated target; local confirmation is not a substitute.
+The Luau agent can return source for operator inspection
+only after the narrow scene-blockout static policy passes. That preview is not
+part of the action queue, is never delivered to Studio, and cannot execute.
+General model-authored gameplay generation and source approval remain
+unavailable. The operator can explicitly select a fixed Treasure Hunt or Obby
+Course template while building a separate `.rbxlx`; neither is sent to map
+validation or executed by the remote harness.
 
-### Gate 3 — disposable execution *(planned, not implemented)*
+### Gate 3 — disposable execution *(fixed map harness implemented; runtime gate pending)*
 
-First execution of anything is to happen in a throwaway test place, never in the
-user's working place. Playtest output is collected and returned to the reviewer
-agent as data. The mechanism is undesigned — see section 8.
+Only the repository-controlled map harness may be sent to the remote Open Cloud
+adapter, and only with bounded recipe JSON as binary input. It creates temporary
+blockout parts, queries route navigation, destroys its temporary folder, and
+returns a bounded result. The API/UI and deployment exist, but no isolated
+universe, scoped key, persistence proof, or live Roblox result is configured.
+Do not rely on this integration until the acceptance evidence in
+[`ADR-0015`](architecture/adr/0015-disposable-world-validation.md) is recorded.
+Generated Luau and `playtest.request` execution remain blocked. Studio MCP and
+Open Cloud expose broad engine access and are not treated as isolation
+boundaries by themselves.
 
-## 3. Autonomy and approval *(planned, not implemented)*
+## 3. Autonomy and approval *(partly implemented)*
 
-The table below is the intended default behaviour, not current behaviour: there
-is no agent to grant or withhold autonomy from.
+The table describes the desired approval boundary. The current direct-agent
+tools implement fixed data-only builds, read-only map validation, and separate
+digest-bound confirmation for persistent asset creation or test-place
+publication. The optional Studio action queue remains limited to its
+script-free declarative subset. General model-authored gameplay source is not
+available.
 
 The default is **propose and wait**, not **act and report**. Rationale is in
 [ADR-0002](architecture/adr/0002-execution-boundary-and-autonomy.md).
@@ -86,17 +138,20 @@ The default is **propose and wait**, not **act and report**. Rationale is in
 | Action | Default |
 |---|---|
 | Plan a task, generate code, validate it | autonomous |
-| Run in a disposable test place | autonomous |
+| Run the fixed map harness in a configured disposable test place | autonomous only after the isolated target and persistence gates are verified |
 | Read the user's project | autonomous |
 | Modify the user's working place | **human approval** |
 | Delete or overwrite existing user content | **human approval, itemised** |
 | Change place or game settings | **human approval** |
 | Enable a script the agent created | **human action only — no protocol operation does it** (this does not mean generated code cannot run; see [ADR-0010](architecture/adr/0010-script-execution-reach-and-action-semantics.md), proposed) |
-| Publish to Roblox | **human action only — never the agent** |
+| Publish to the pinned disposable test place | **explicit human approval for the exact artifact and destination on every operation** |
+| Publish to production | **denied; no protocol operation or session setting can enable it** |
 | Any network call from generated code | **denied** |
 
-Users may loosen the three approval rows for a session. The last two rows are not
-configurable: they are invariants I5 and I2 in `ARCHITECTURE.md`. Enabling a
+Users may loosen the three approval rows for a session. Production publishing
+and network calls from generated code are not configurable: they are invariants
+I5 and I2 in `ARCHITECTURE.md`. Test-place publishing always requires a separate
+approval bound to the artifact digest and fixed destination. Enabling a
 script is not loosenable either, because no protocol operation expresses it (see
 [`docs/protocol/README.md`](protocol/README.md)); making it possible is a decision
 for a later ADR, not a setting. That the agent cannot enable a script is not a
@@ -122,23 +177,25 @@ Invariant I3. Enforced structurally, not by instruction:
 
 ## 5. Credentials *(partly in place)*
 
-Unlike the rest of this document, two of these are real today: `.gitignore`
-excludes the secret paths, and the CI secret scan exists (unrun). The rest
-describes code that does not exist.
-
-- LLM API keys live only in the API service's environment
+- LLM API keys are read by the API/operator process only
   ([ADR-0005](architecture/adr/0005-credentials-and-thin-plugin.md)).
-- The Studio plugin authenticates to the local API with a scoped token from
-  `.env`. It never sees a provider key.
-- Secrets are redacted from the run log and from any error surfaced to the UI.
+- The optional Studio plugin uses its own API token; it never receives a
+  provider key. Remote MCP credentials stay on the API and dedicated MCP hosts
+  that need them.
+- Blender can use a separate `BLENDER_AUTH_TOKEN` for the loopback-only recipe
+  route. That token authorizes world recipe generation only; the add-on stores
+  it in Blender's user preferences and never receives the LLM key.
+- HTTP request logging is suppressed, and recipe endpoint errors do not include
+  credentials or provider exception details.
 - `.gitignore` excludes `.env`, `*.pem`, `*.key` and `secrets/`; CI runs a
   secret scanner on every push and pull request.
 
-## 6. Spend and iteration limits *(mechanisms implemented, not integrated)*
+## 6. Spend and iteration limits *(integrated into the core builder loop)*
 
 Invariant I6. `packages/core/budget.py` contains `IterationBudget`,
-`SpendBudget` and `BudgetedLLMProvider`. They are library mechanisms only: no
-agent loop exists to call them, and there are no real LLM adapters. The
+`SpendBudget` and `BudgetedLLMProvider`. The builder and world design loops use
+both guards. The optional Anthropic adapter pre-counts input tokens, quotes the
+configured output limit, and reports actual token usage for settlement. The
 `.env.example` file is not loaded automatically; the `from_env()` methods read
 the process environment when called.
 
@@ -148,13 +205,19 @@ the process environment when called.
 The spend wrapper refuses a paid call before `generate()` if the adapter cannot
 provide a maximum-cost quote or the quote does not fit the remaining budget.
 That quote is an adapter promise; if an adapter under-quotes or misreports the
-actual charge, the overspend can only be detected after the call. No real
-adapter exists to provide or verify such a quote, and estimated cost is not yet
-shown before a run. The default `fake` provider costs zero.
+actual charge, the overspend can only be detected after the call. The Anthropic
+adapter currently supports only its priced Sonnet model; unknown models fail
+closed. The default `fake` provider costs zero.
 
 ## 7. Platform policy
 
-- The project does not automate publishing. Publishing is a manual user action.
+- The fixed MCP publisher can update only a server-pinned disposable test place
+  after the user reviews the artifact digest and destination and explicitly
+  approves that operation. The agent can present the approval request, but it
+  cannot supply approval on the user's behalf. The publisher itself does not run
+  in Studio; the user opens and inspects the result in Studio. Production
+  publishing remains denied. The publisher must stay disabled until isolation
+  and restoration have been verified against a real test experience.
 - The README states plainly what the system does and does not do, so a user can
   judge their own compliance.
 - Generated content is the user's responsibility; the tool does not moderate it,
@@ -164,26 +227,52 @@ shown before a run. The default `fake` provider costs zero.
 
 Honest list, to be closed as the implementation lands:
 
-- The API allowlist does not exist yet.
-- There is no run log yet.
-- The Lute 1.0.0 syntax bridge exists, but the analyzer and API allowlist do not.
-  It bounds source size and wall time; process memory is not bounded, so this is
-  not yet a complete Gate 1.
-- A generated `Script` or `LocalScript` is meant to be created disabled and to stay
-  so until a human enables it in Studio. That is a requirement on a plugin that does
-  not exist, and it is not a guarantee that generated code cannot run (ADR-0010,
-  proposed). How generated code is to run without touching the working place is
-  undecided and has to be settled before the stage 4 slice; it needs its own ADR and
-  an approval bound to the reviewed source.
-- "Disposable test place" has no mechanism yet — how the plugin creates and
-  tears one down is undesigned.
-- No approval gate, complete Gate 1 validator, execution isolation or run log is
-  enforced by code; only the syntax-only Lute bridge exists in
-  `packages/sandbox`. The core has trusted/untrusted LLM request framing and
-  standalone budget mechanisms, but no loop uses them and no Studio behavior
-  has been exercised. The test suite is configured to use `LLM_PROVIDER=fake`.
+- The API allowlist covers only blockout constructors and properties, not general
+  gameplay Luau services or methods.
+- The operator UI renders the latest audit events with readable names and field
+  labels. World-recipe generation shares its run UUID with downstream Blender,
+  Roblox validation, and Studio queue records, which the UI groups into a scene
+  workflow timeline. Studio delivery/result events can be joined through the
+  action ID in that workflow's queue event; those later events do not carry the
+  workflow UUID directly. Successful model-backed generation events retain
+  bounded per-call provider, model, token, and cost data with checked totals;
+  prompts and model output are excluded from the audit history.
+- The Lute 1.0.0 syntax bridge, normalized CST, and scoped blockout policy exist;
+  they bound source size, wall time and output, and limit process memory on
+  Linux and Windows. It refuses to run where that memory bound is unavailable,
+  so this is not yet a complete Gate 1.
+- Model-authored scripts remain blocked. The fixed Treasure Hunt, Obby Course,
+  and data-driven rule templates are
+  emitted enabled only after the operator explicitly selects that mode and
+  approves the build; this does not approve publishing or alter an existing
+  place. Its syntax and artifact checks pass, but no live Roblox playtest has
+  verified its runtime behavior. This is one built-in mode, not a general
+  gameplay generator or a production-readiness claim.
+- The fixed remote map harness is implemented, but no isolated test place,
+  scoped key, persistence evidence, or live result is configured. The remaining
+  verification gates are in
+  [`ADR-0015`](architecture/adr/0015-disposable-world-validation.md).
+- The installed Studio plugin is verified only as an optional local
+  compatibility client. No remote project editor or hosted user workspace has
+  been validated; configured external MCP endpoints are required to verify the
+  remote workflow.
+- No full web approval workspace, general gameplay Luau Gate 1 validator, or
+  execution isolation exists. API queue/approval checks and local
+  Studio confirmation cover only the script-free declarative action subset;
+  the source policy accepts only scoped blockout construction and cannot execute
+  generated code.
+  The core has trusted/untrusted LLM request framing and
+  budget mechanisms in the core builder, world design, and Studio blockout loops.
+  World recipes and Studio blockouts are wired to the API. Local Studio
+  application needs the optional plugin; remote gameplay execution is not
+  implemented. The test suite
+  is configured to use `LLM_PROVIDER=fake`.
 
-The first two are on the critical path for the stage 4 vertical slice: without a
-validator there is no gate 1, and without gate 1 nothing generated may run.
+The general-purpose validator and isolated runner remain on the stage 4 critical
+path. The current scene-blockout validator does not authorize arbitrary
+model-generated gameplay code. Only fixed Treasure Hunt, Obby Course, and
+data-driven rule templates can be included in a build, after explicit mode
+selection; the current collect-and-win example has artifact-level validation
+but no live gameplay playtest.
 
 Report anything beyond this list through [`SECURITY.md`](../SECURITY.md).
