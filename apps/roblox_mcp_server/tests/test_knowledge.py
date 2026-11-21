@@ -93,6 +93,9 @@ def test_agent_corrects_recipe_and_unwinnable_plan_before_building(rpc):
             },
         },
     )[1]
+    # A build that fails answers with an error payload and no structuredContent.
+    # Report what the server said: a bare KeyError here says nothing at all.
+    assert "structuredContent" in accepted["result"], accepted["result"]
     assert (
         accepted["result"]["structuredContent"]["gameplay_mode"]
         == valid["build_settings"]["gameplay_mode"]

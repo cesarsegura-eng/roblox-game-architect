@@ -182,6 +182,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Blender container never verified the archive it downloaded. `sha256sum
+  --check` reads each file name from the checksum line, and the build saved the
+  tarball under a different name, so the check could not find its input and
+  failed; until the download itself started failing, that step had never run at
+  all. The archive now keeps its published name, and the build prints the `OK`
+  line as evidence that the hash was checked.
+
 - The first hosted CI run on this tree exposed five failures, all fixed here:
   the Rojo-dependent MCP knowledge test now skips when `rojo` is absent, the
   way the Lute tests already did, and the job that installs the toolchain runs

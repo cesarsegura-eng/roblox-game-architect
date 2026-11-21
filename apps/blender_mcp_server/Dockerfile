@@ -10,17 +10,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 libxrender1 libxss1 libxt6 libxxf86vm1 \
     && rm -rf /var/lib/apt/lists/*
 
+# sha256sum --check reads each file name from the checksum line, so the archive
+# keeps its published name here. Saving it as blender.tar.xz left the check
+# unable to find its input, so it never verified anything.
 RUN set -eu; \
     base="https://download.blender.org/release/Blender5.2"; \
     archive="blender-${BLENDER_VERSION}-linux-x64.tar.xz"; \
     get() { curl --fail --location --silent --show-error --retry 5 --retry-delay 5 \
         --retry-all-errors --connect-timeout 30 "$1" -o "$2"; }; \
-    get "$base/$archive" /tmp/blender.tar.xz; \
+    get "$base/$archive" "/tmp/$archive"; \
     get "$base/blender-${BLENDER_VERSION}.sha256" /tmp/blender.sha256; \
-    grep "$archive" /tmp/blender.sha256 | sha256sum --check --status -; \
+    cd /tmp; \
+    grep "$archive" /tmp/blender.sha256 | sha256sum --check -; \
     mkdir -p /opt/blender; \
-    tar --extract --xz --file /tmp/blender.tar.xz --directory /opt/blender --strip-components=1; \
-    rm /tmp/blender.tar.xz /tmp/blender.sha256
+    tar --extract --xz --file "/tmp/$archive" --directory /opt/blender --strip-components=1; \
+    rm "/tmp/$archive" /tmp/blender.sha256
 
 WORKDIR /srv/rga
 COPY pyproject.toml README.md LICENSE ./
