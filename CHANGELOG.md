@@ -116,6 +116,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- When the pinned Lute binary cannot run, the error now carries its exit code and
+  names the usual cause: a Rokit shim fails this way when `ROKIT_ROOT` does not
+  point at the toolchain directory. Without it the suite reports 18 confusing
+  failures across `test_lute_integration.py` instead of one actionable message.
+  No Lute output is surfaced: `--version` is the one call that reads no project
+  source.
+
 - `.gitignore` extended to cover Roblox binaries (`*.rbxl`, `*.rbxm`), Rojo and
   Wally artifacts, generated project data, test caches and OS files.
 - `LICENSE` copyright holder filled in.

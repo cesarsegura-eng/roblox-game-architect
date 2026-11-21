@@ -124,6 +124,25 @@ def test_missing_lute_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
         LuteSyntaxParser()
 
 
+def test_a_failing_version_check_names_the_usual_cause(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Rokit shim exits non-zero when ROKIT_ROOT is unset, and the message says so."""
+    monkeypatch.setattr(
+        "sandbox.parser.shutil.which", lambda executable: "C:/tools/rokit/bin/lute.exe"
+    )
+
+    def fake_run(command: list[str], **kwargs: Any) -> _ProcessResult:
+        del command, kwargs
+        return _ProcessResult(returncode=1, stdout=b"")
+
+    monkeypatch.setattr("sandbox.parser._run_bounded", fake_run)
+
+    with pytest.raises(LuteUnavailableError) as raised:
+        LuteSyntaxParser()
+    message = str(raised.value)
+    assert "exit 1" in message
+    assert "ROKIT_ROOT" in message
+
+
 def test_source_above_limit_is_rejected_before_running_parser(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

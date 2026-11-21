@@ -500,7 +500,13 @@ class LuteSyntaxParser:
     def _verify_version(self) -> None:
         result = self._run(["--version"], _VERSION_TIMEOUT_SECONDS)
         if result.returncode != 0:
-            raise LuteUnavailableError("Lute version check failed")
+            # The exit code is the tool's own; no Lute output is surfaced, because
+            # `--version` is the one call that reads no project source.
+            raise LuteUnavailableError(
+                f"Lute version check failed (exit {result.returncode}). A Rokit shim "
+                "fails this way when ROKIT_ROOT does not point at the toolchain "
+                "directory; see docs/runbook-live-verification.md."
+            )
         actual = self._decode(result.stdout).strip()
         if actual != PINNED_LUTE_VERSION:
             raise LuteVersionError(
