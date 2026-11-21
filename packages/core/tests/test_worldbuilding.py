@@ -72,6 +72,49 @@ def test_character_recipe_validates_against_the_canonical_schema() -> None:
     assert SceneRecipe.from_json(recipe.to_json()) == recipe
 
 
+@pytest.mark.parametrize("silhouette", ["balanced", "heroic", "slender", "round"])
+def test_character_silhouette_is_bounded_and_roundtrips(silhouette: str) -> None:
+    root = Path(__file__).resolve().parents[3]
+    schema = json.loads(
+        (root / "packages/core/schemas/scene-recipe-v3.schema.json").read_text(encoding="utf-8")
+    )
+    payload = _character_recipe()
+    payload["characters"][0]["silhouette"] = silhouette
+    recipe = SceneRecipe.from_mapping(payload)
+
+    Draft202012Validator(schema).validate(recipe.to_mapping())
+    assert recipe.to_mapping()["characters"][0]["silhouette"] == silhouette
+
+
+def test_character_silhouette_defaults_balanced_and_rejects_unknown_values() -> None:
+    recipe = SceneRecipe.from_mapping(_character_recipe())
+    assert recipe.to_mapping()["characters"][0]["silhouette"] == "balanced"
+
+    for silhouette in ("giant", ["heroic"], None):
+        payload = _character_recipe()
+        payload["characters"][0]["silhouette"] = silhouette
+        with pytest.raises(WorldbuildingError, match="silhouette"):
+            SceneRecipe.from_mapping(payload)
+
+
+def test_character_silhouette_is_accepted_by_the_blender_recipe_contract() -> None:
+    root = Path(__file__).resolve().parents[3]
+    addon_path = root / "apps/blender-addon/rga_scene_builder/recipe_contract.py"
+    spec = importlib.util.spec_from_file_location("rga_character_recipe_contract", addon_path)
+    assert spec is not None and spec.loader is not None
+    addon_contract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(addon_contract)
+
+    payload = _character_recipe()
+    payload["characters"][0]["silhouette"] = "heroic"
+    parsed = addon_contract.parse_recipe(json.dumps(payload))
+    assert parsed["characters"][0]["silhouette"] == "heroic"
+
+    payload["characters"][0]["silhouette"] = "unbounded"
+    with pytest.raises(addon_contract.RecipeError, match="silhouette"):
+        addon_contract.parse_recipe(json.dumps(payload))
+
+
 def test_v3_environment_roundtrips_through_core_and_blender_contracts() -> None:
     root = Path(__file__).resolve().parents[3]
     addon_path = root / "apps/blender-addon/rga_scene_builder/recipe_contract.py"
@@ -476,6 +519,32 @@ def test_world_brief_house_and_room_requests_require_the_named_scene_roles() -> 
 @pytest.mark.parametrize("word", ["entries", "entrances", "doors"])
 def test_world_brief_recognizes_entry_variants(word: str) -> None:
     assert _required_scene_roles(f"Build a house with two {word}.") >= {"entry"}
+
+
+@pytest.mark.parametrize("word", ["opening", "aperture", "abertura", "hueco"])
+def test_world_brief_recognizes_walkthrough_opening_variants(word: str) -> None:
+    assert _required_scene_roles(f"Build a clear {word} in the cave mouth.") == {"opening"}
+
+
+@pytest.mark.parametrize(
+    ("word", "role"),
+    [
+        ("terrain", "terrain"),
+        ("suelo", "terrain"),
+        ("water", "water"),
+        ("río", "water"),
+        ("vegetation", "vegetation"),
+        ("plantas", "vegetation"),
+        ("árboles", "vegetation"),
+        ("rocks", "rock"),
+        ("basalto", "rock"),
+        ("piedras", "rock"),
+        ("landmark", "landmark"),
+        ("mirador", "landmark"),
+    ],
+)
+def test_world_brief_preserves_explicit_environment_roles(word: str, role: str) -> None:
+    assert _required_scene_roles(f"Build a map with {word}.") == {role}
 
 
 def test_interior_only_house_request_does_not_expand_to_an_exterior_build() -> None:

@@ -16,4 +16,19 @@ Validate from the project root:
 uv run python tools/validate_scene_recipe.py examples/worlds/desert-courtyard-home-v3/scene-recipe.json
 ```
 
-The version 3 recipe adds a warm afternoon Roblox Lighting profile, a low-haze Atmosphere, and sparse clouds. The script-free Roblox place builder writes these settings to the generated place file.
+To build a separate, unpublished script-free Roblox place for inspection in
+Studio, use the pinned Rojo toolchain:
+
+```powershell
+uv run python tools/build_roblox_place.py `
+  examples/worlds/desert-courtyard-home-v3/scene-recipe.json `
+  dist/rga-review-desert-courtyard-house.rbxlx --gameplay-mode blockout
+```
+
+The version 3 recipe adds a warm afternoon Roblox Lighting profile, a low-haze
+Atmosphere, and sparse clouds. The place builder writes these settings into the
+artifact and keeps the recipe as a blockout; the generated file is not a tested
+or production-ready house. For the agent workflow, use the user's existing
+native Studio MCP and remote Blender MCP when they are available; this local
+build command is an optional review path and does not require installing the
+RGA Studio plugin.

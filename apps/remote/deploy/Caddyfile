@@ -1,9 +1,30 @@
+{
+	# Bound how long a client may take to send its request. Without these a client
+	# that connects and stalls holds a backend connection slot (the services admit
+	# only a few at a time). There is deliberately no `write` timeout: a Blender build
+	# or a cloud validation answers only when it finishes.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 120s
+			idle 2m
+		}
+		max_header_size 16KB
+	}
+}
+
 {$BLENDER_DOMAIN} {
-	@blender_mcp path /mcp
-	@blender_artifacts path /artifacts/*
+	@blender_mcp {
+		path /mcp
+		method POST
+	}
+	@blender_artifacts {
+		path /artifacts/*
+		method GET
+	}
 	handle @blender_mcp {
 		request_body {
-			max_size 1MB
+			max_size 2MB
 		}
 		reverse_proxy blender-mcp:8788
 	}
@@ -23,7 +44,10 @@
 	handle @downloads {
 		reverse_proxy roblox-mcp:8790
 	}
-	@roblox_mcp path /mcp
+	@roblox_mcp {
+		path /mcp
+		method POST
+	}
 	handle @roblox_mcp {
 		request_body {
 			max_size 28MB

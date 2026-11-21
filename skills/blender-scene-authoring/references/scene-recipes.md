@@ -1,8 +1,8 @@
-# Scene recipe v2
+# Scene recipe v3
 
-The current authoring schema is `packages/core/schemas/scene-recipe-v3.schema.json`.
-The core parser and Blender's dependency-free validator mirror it. Both still
-accept the older v1 and v2 geometry formats.
+The authoritative authoring schema is next to this guide at
+`scene-recipe-v3.schema.json`. The core parser and Blender's dependency-free
+validator mirror it. Both still accept the older v1 and v2 geometry formats.
 
 Recipes are JSON data: a version, scene name, units, bounded objects, lights,
 and optional character blockouts.
@@ -18,12 +18,18 @@ blockouts, use `exterior`, `entry`, `courtyard`, `interior`, `roof`, `opening`,
 and `furnishing` on distinct forms when the brief asks for those spaces. A role
 does not create a doorway or a room by itself: geometry and placement must make
 the threshold and circulation legible.
+Build a walk-through doorway as an actual gap: author separate wall sections
+and a header, or use a mesh with no faces across the aperture. Keep the opening's
+clearance volume free of solid geometry; an `opening`-role frame or marker must
+not plug the passage.
 
 Optional bevel, smooth shading, and a simple RGBA/roughness material are also
 supported. Mesh recipes can describe custom low-poly silhouettes such as
 faceted rocks, roof gables, cliffs, and stylized props. Optional `characters`
-entries define a generic humanoid blockout by name, location, scale, and either
-a `WALK`, `RUN`, `JUMP`, or `IDLE` action. Each entry creates a fixed skeleton and 16 rigidly
+entries define a generic humanoid blockout by name, location, scale, optional
+`silhouette` (`balanced`, `heroic`, `slender`, or `round`), and either a `WALK`,
+`RUN`, `JUMP`, or `IDLE` action. The silhouette changes bounded body-part
+proportions while keeping the same fixed skeleton. Each entry creates a fixed skeleton and 16 rigidly
 weighted body meshes. This is not production anatomy, deformation-ready skinning,
 or a Roblox R15 rig. Recipes still cannot describe arbitrary bone data,
 expressions, or custom motion curves.
@@ -31,9 +37,13 @@ expressions, or custom motion curves.
 Recipe v3 adds a strict, bounded Roblox environment block: ambient and outdoor
 color, brightness, time of day, exposure, shadows, Atmosphere color/decay and
 scattering parameters, and optional dynamic cloud cover. The script-free Roblox
-place builder writes these to the Lighting service and Terrain; GLB geometry
-exports do not carry those Roblox-specific environment settings, so review and
-use the `.rbxlx` artifact when the requested mood depends on them.
+place builder writes lighting properties and Atmosphere to `Lighting`, and an
+optional Clouds instance under `Workspace.Terrain`. It does not generate terrain
+voxels or sculpted heightfields. GLB geometry exports do not carry these
+Roblox-specific environment settings, so review and use the `.rbxlx` artifact
+when the requested mood depends on them. The remote Blender worker also omits
+glTF light nodes (`KHR_lights_punctual`), which the Roblox asset preflight does
+not accept; recipe lights are applied to the `.rbxlx` artifact instead.
 
 The recipe is not an arbitrary Blender command language. It cannot create
 scripts, Python drivers, filesystem paths, network requests, modifiers with

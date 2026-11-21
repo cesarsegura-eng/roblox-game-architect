@@ -1,6 +1,10 @@
 -- Local Studio client for reviewing and applying the script-free action subset.
 local HttpService = game:GetService("HttpService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
+local StrictJson = require(script.Parent:WaitForChild("Protocol"):WaitForChild("StrictJson"))
+local ProtocolSchemas = require(script.Parent:WaitForChild("Protocol"):WaitForChild("Schemas"))
+local SchemaValidator =
+	require(script.Parent:WaitForChild("Protocol"):WaitForChild("SchemaValidator"))
 
 local API_URL_PREFIX = "http://127.0.0.1:"
 local activeToken = ""
@@ -9,6 +13,19 @@ local executionUncertain = false
 local MAX_ENTRIES = 2000
 local MAX_BODY_BYTES = 800_000
 local MAX_DEPTH = 16
+local function decodeProtocolResponse(body)
+	local decoded, reason = StrictJson.parse(body)
+	if decoded == nil then
+		error("API response failed the strict JSON profile (" .. tostring(reason) .. ")")
+	end
+	local valid, stage, path =
+		SchemaValidator.message(decoded, ProtocolSchemas.schemas, ProtocolSchemas.types)
+	if not valid then
+		error(string.format("API response failed protocol validation (%s at %s)", stage, path))
+	end
+	return decoded
+end
+
 local ROOT_NAMES = {
 	"Workspace",
 	"ReplicatedStorage",
@@ -23,23 +40,13 @@ local ROOT_NAMES = {
 }
 
 local toolbar = plugin:CreateToolbar("Roblox Game Architect")
-local toggleButton = toolbar:CreateButton(
-	"RGAConnection",
-	"Connect to the local Roblox Game Architect API",
-	""
-)
+local toggleButton =
+	toolbar:CreateButton("RGAConnection", "Connect to the local Roblox Game Architect API", "")
 toggleButton.ClickableWhenViewportHidden = true
 
-local widgetInfo = DockWidgetPluginGuiInfo.new(
-	Enum.InitialDockState.Float,
-	false,
-	false,
-	480,
-	490,
-	420,
-	450
-)
-local widget = plugin:CreateDockWidgetPluginGui("RGAConnection", widgetInfo)
+local widgetInfo =
+	DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 480, 490, 420, 450)
+local widget = plugin:CreateDockWidgetPluginGuiAsync("RGAConnection", widgetInfo)
 widget.Title = "Roblox Game Architect"
 
 local frame = Instance.new("Frame")
@@ -66,12 +73,12 @@ end
 makeLabel(
 	"TokenLabel",
 	"Local API token (kept in this widget only)",
-	UDim2.new(0, 12, 0, 10),
+	UDim2.fromOffset(12, 10),
 	UDim2.new(1, -24, 0, 24)
 )
 local tokenBox = Instance.new("TextBox")
 tokenBox.Name = "Token"
-tokenBox.Position = UDim2.new(0, 12, 0, 38)
+tokenBox.Position = UDim2.fromOffset(12, 38)
 tokenBox.Size = UDim2.new(1, -24, 0, 32)
 tokenBox.PlaceholderText = "PLUGIN_AUTH_TOKEN"
 tokenBox.ClearTextOnFocus = false
@@ -79,26 +86,27 @@ tokenBox.Text = ""
 tokenBox.TextXAlignment = Enum.TextXAlignment.Left
 tokenBox.Parent = frame
 
-makeLabel("PortLabel", "API port", UDim2.new(0, 12, 0, 78), UDim2.new(1, -24, 0, 22))
+makeLabel("PortLabel", "API port", UDim2.fromOffset(12, 78), UDim2.new(1, -24, 0, 22))
 local portBox = Instance.new("TextBox")
 portBox.Name = "Port"
-portBox.Position = UDim2.new(0, 12, 0, 102)
-portBox.Size = UDim2.new(0, 110, 0, 30)
+portBox.Position = UDim2.fromOffset(12, 102)
+portBox.Size = UDim2.fromOffset(110, 30)
 portBox.Text = "8787"
 portBox.ClearTextOnFocus = false
 portBox.Parent = frame
 
-local status = makeLabel("Status", "Not connected", UDim2.new(0, 12, 0, 140), UDim2.new(1, -24, 0, 42))
+local status =
+	makeLabel("Status", "Not connected", UDim2.fromOffset(12, 140), UDim2.new(1, -24, 0, 42))
 local syncButton = Instance.new("TextButton")
 syncButton.Name = "ConnectAndSync"
 syncButton.Text = "Fetch approved action for review"
-syncButton.Position = UDim2.new(0, 12, 0, 184)
+syncButton.Position = UDim2.fromOffset(12, 184)
 syncButton.Size = UDim2.new(1, -24, 0, 34)
 syncButton.Parent = frame
 
 local reviewScroll = Instance.new("ScrollingFrame")
 reviewScroll.Name = "ActionReviewScroll"
-reviewScroll.Position = UDim2.new(0, 12, 0, 228)
+reviewScroll.Position = UDim2.fromOffset(12, 228)
 reviewScroll.Size = UDim2.new(1, -24, 0, 170)
 reviewScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 reviewScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -109,7 +117,7 @@ reviewScroll.Parent = frame
 local review = Instance.new("TextLabel")
 review.Name = "ActionReview"
 review.Text = "No action is awaiting review."
-review.Position = UDim2.new(0, 4, 0, 4)
+review.Position = UDim2.fromOffset(4, 4)
 review.Size = UDim2.new(1, -12, 0, 0)
 review.AutomaticSize = Enum.AutomaticSize.Y
 review.BackgroundTransparency = 1
@@ -124,7 +132,7 @@ review.Parent = reviewScroll
 local applyButton = Instance.new("TextButton")
 applyButton.Name = "ApplyReviewedAction"
 applyButton.Text = "Apply this action to Workspace"
-applyButton.Position = UDim2.new(0, 12, 0, 406)
+applyButton.Position = UDim2.fromOffset(12, 406)
 applyButton.Size = UDim2.new(0.5, -18, 0, 34)
 applyButton.Visible = false
 applyButton.Parent = frame
@@ -140,7 +148,7 @@ rejectButton.Parent = frame
 makeLabel(
 	"Notice",
 	"Only approved, script-free Workspace edits are supported. Each action is undoable.",
-	UDim2.new(0, 12, 0, 448),
+	UDim2.fromOffset(12, 448),
 	UDim2.new(1, -24, 0, 30)
 )
 
@@ -198,14 +206,28 @@ local function readProperties(instance)
 		Transparency = instance.Transparency,
 		Color = { r = color.R, g = color.G, b = color.B },
 	}
-	if size.X >= 0.05 and size.Y >= 0.05 and size.Z >= 0.05
-		and size.X <= 2048 and size.Y <= 2048 and size.Z <= 2048 then
+	if
+		size.X >= 0.05
+		and size.Y >= 0.05
+		and size.Z >= 0.05
+		and size.X <= 2048
+		and size.Y <= 2048
+		and size.Z <= 2048
+	then
 		properties.Size = { x = size.X, y = size.Y, z = size.Z }
 	end
-	if math.abs(position.X) <= 100000 and math.abs(position.Y) <= 100000 and math.abs(position.Z) <= 100000 then
+	if
+		math.abs(position.X) <= 100000
+		and math.abs(position.Y) <= 100000
+		and math.abs(position.Z) <= 100000
+	then
 		properties.Position = { x = position.X, y = position.Y, z = position.Z }
 	end
-	if math.abs(orientation.X) <= 360 and math.abs(orientation.Y) <= 360 and math.abs(orientation.Z) <= 360 then
+	if
+		math.abs(orientation.X) <= 360
+		and math.abs(orientation.Y) <= 360
+		and math.abs(orientation.Z) <= 360
+	then
 		properties.Orientation = { x = orientation.X, y = orientation.Y, z = orientation.Z }
 	end
 	local material = instance.Material.Name
@@ -327,12 +349,12 @@ local function sendSnapshot(sessionId)
 	if not response.Success then
 		error(string.format("API rejected snapshot (HTTP %d)", response.StatusCode))
 	end
-	local decoded = HttpService:JSONDecode(response.Body)
+	local decoded = decodeProtocolResponse(response.Body)
 	if decoded.status ~= "ok" then
 		local payload = type(decoded.payload) == "table" and decoded.payload or {}
 		local issue = tostring(payload.code or "unknown")
 		local detail = type(payload.message) == "string"
-			and string.sub(string.gsub(payload.message, "[^%w%p ]", "?"), 1, 80)
+				and string.sub(string.gsub(payload.message, "[^%w%p ]", "?"), 1, 80)
 			or ""
 		error("API rejected the place snapshot (" .. issue .. "): " .. detail)
 	end
@@ -342,9 +364,11 @@ local function sendAfterActionSnapshot(sessionId, actionId)
 	local payload = collectSnapshot("after_action", actionId)
 	local response = request(envelope("project.state", sessionId, payload))
 	if not response.Success then
-		error(string.format("Could not send the after-action snapshot (HTTP %d)", response.StatusCode))
+		error(
+			string.format("Could not send the after-action snapshot (HTTP %d)", response.StatusCode)
+		)
 	end
-	local decoded = HttpService:JSONDecode(response.Body)
+	local decoded = decodeProtocolResponse(response.Body)
 	if decoded.status ~= "ok" then
 		local issue = type(decoded.payload) == "table" and decoded.payload.code or "unknown"
 		error("API rejected the after-action snapshot (" .. tostring(issue) .. ")")
@@ -523,8 +547,11 @@ local function validatePropertyValue(property, value)
 end
 
 local function validateEditAction(action)
-	if not hasExactKeys(action, { "type", "action_id", "declared_scope", "operations" })
-		or action.type ~= "edit.action" or not validText(action.action_id, 64) then
+	if
+		not hasExactKeys(action, { "type", "action_id", "declared_scope", "operations" })
+		or action.type ~= "edit.action"
+		or not validText(action.action_id, 64)
+	then
 		return false, "Action envelope is malformed."
 	end
 	local scope = action.declared_scope
@@ -533,30 +560,44 @@ local function validateEditAction(action)
 		return false, "Action exceeds the local scope or operation limits."
 	end
 	for _, entry in ipairs(scope) do
-		if not hasExactKeys(entry, { "path", "extent" })
+		if
+			not hasExactKeys(entry, { "path", "extent" })
 			or not validPath(entry.path)
-			or (entry.extent ~= "self" and entry.extent ~= "subtree") then
+			or (entry.extent ~= "self" and entry.extent ~= "subtree")
+		then
 			return false, "Action scope is malformed."
 		end
 	end
 	local operationIds = {}
 	for _, operation in ipairs(operations) do
-		if type(operation) ~= "table" or not validText(operation.op_id, 64)
-			or operationIds[operation.op_id] then
+		if
+			type(operation) ~= "table"
+			or not validText(operation.op_id, 64)
+			or operationIds[operation.op_id]
+		then
 			return false, "Action operation identifiers are malformed or duplicated."
 		end
 		operationIds[operation.op_id] = true
 		if operation.op == "create_instance" then
-			if not hasExactKeys(operation, { "op", "op_id", "parent", "name", "class_name" })
+			if
+				not hasExactKeys(operation, { "op", "op_id", "parent", "name", "class_name" })
 				or not hasExactKeys(operation.parent, { "path", "expect_class" })
 				or not validPath(operation.parent.path)
 				or not validText(operation.name, 100)
-				or (operation.class_name ~= "Folder" and operation.class_name ~= "Model"
-					and operation.class_name ~= "Part" and operation.class_name ~= "WedgePart") then
+				or (
+					operation.class_name ~= "Folder"
+					and operation.class_name ~= "Model"
+					and operation.class_name ~= "Part"
+					and operation.class_name ~= "WedgePart"
+				)
+			then
 				return false, "Action contains an unsupported or malformed creation."
 			end
-			if operation.parent.expect_class ~= "Workspace" and operation.parent.expect_class ~= "Folder"
-				and operation.parent.expect_class ~= "Model" then
+			if
+				operation.parent.expect_class ~= "Workspace"
+				and operation.parent.expect_class ~= "Folder"
+				and operation.parent.expect_class ~= "Model"
+			then
 				return false, "Action creation parent is outside the safe subset."
 			end
 			local createdPath = table.clone(operation.parent.path)
@@ -565,13 +606,16 @@ local function validateEditAction(action)
 				return false, "Action creation is outside its declared scope."
 			end
 		elseif operation.op == "set_property" then
-			if not hasExactKeys(operation, { "op", "op_id", "target", "property", "value" })
+			if
+				not hasExactKeys(operation, { "op", "op_id", "target", "property", "value" })
 				or not hasExactKeys(operation.target, { "path", "expect_class" })
 				or not validPath(operation.target.path)
 				or (operation.target.expect_class ~= "Part" and operation.target.expect_class ~= "WedgePart")
 				or not pathCoveredByScope(operation.target.path, scope)
-				or not validatePropertyValue(operation.property, operation.value) then
-				return false, "Action contains a malformed, out-of-scope, or unsupported property change."
+				or not validatePropertyValue(operation.property, operation.value)
+			then
+				return false,
+					"Action contains a malformed, out-of-scope, or unsupported property change."
 			end
 		else
 			return false, "Action contains an unsupported operation; no changes were applied."
@@ -623,7 +667,7 @@ local function connectAndFetchAction()
 	if not response.Success then
 		error(string.format("API rejected handshake (HTTP %d)", response.StatusCode))
 	end
-	local decoded = HttpService:JSONDecode(response.Body)
+	local decoded = decodeProtocolResponse(response.Body)
 	if decoded.status ~= "ok" or type(decoded.session_id) ~= "string" then
 		error("API handshake failed; check the local API and token")
 	end
@@ -632,7 +676,7 @@ local function connectAndFetchAction()
 	if not pollResponse.Success then
 		error(string.format("Work poll failed (HTTP %d)", pollResponse.StatusCode))
 	end
-	local poll = HttpService:JSONDecode(pollResponse.Body)
+	local poll = decodeProtocolResponse(pollResponse.Body)
 	if poll.status ~= "ok" then
 		error("API did not return a work response")
 	end
@@ -646,11 +690,20 @@ local function connectAndFetchAction()
 			playtest_id = work.playtest_id,
 			outcome = "failed_to_start",
 			duration_ms = 0,
-			output = {{ t_ms = 0, level = "warn", text = "Playtests are disabled in this plugin version." }},
+			output = {
+				{
+					t_ms = 0,
+					level = "warn",
+					text = "Playtests are disabled in this plugin version.",
+				},
+			},
 			output_truncated = false,
 		}
 		local resultResponse = request(envelope("playtest.report", decoded.session_id, report))
-		if not resultResponse.Success or HttpService:JSONDecode(resultResponse.Body).status ~= "ok" then
+		if not resultResponse.Success then
+			error("The API did not accept the blocked playtest report")
+		end
+		if decodeProtocolResponse(resultResponse.Body).status ~= "ok" then
 			error("The API did not accept the blocked playtest report")
 		end
 		status.Text = "Received a playtest request; it was not run and was reported as blocked."
@@ -672,21 +725,27 @@ local function connectAndFetchAction()
 	end
 	for index, operation in ipairs(work.operations) do
 		if operation.op == "create_instance" then
-			table.insert(lines, string.format(
-				"%d. Create %s %q under %s",
-				index,
-				operation.class_name,
-				displayUntrusted(operation.name),
-				displayPath(operation.parent.path)
-			))
+			table.insert(
+				lines,
+				string.format(
+					"%d. Create %s %q under %s",
+					index,
+					operation.class_name,
+					displayUntrusted(operation.name),
+					displayPath(operation.parent.path)
+				)
+			)
 		else
-			table.insert(lines, string.format(
-				"%d. Set %s at %s to %s",
-				index,
-				operation.property,
-				displayPath(operation.target.path),
-				HttpService:JSONEncode(operation.value)
-			))
+			table.insert(
+				lines,
+				string.format(
+					"%d. Set %s at %s to %s",
+					index,
+					operation.property,
+					displayPath(operation.target.path),
+					HttpService:JSONEncode(operation.value)
+				)
+			)
 		end
 	end
 	review.Text = table.concat(lines, "\n")
@@ -741,7 +800,11 @@ local function preflight(action)
 			if parentClass ~= operation.parent.expect_class then
 				return index, "parent class changed since planning"
 			end
-			if parentClass ~= "Workspace" and parentClass ~= "Folder" and parentClass ~= "Model" then
+			if
+				parentClass ~= "Workspace"
+				and parentClass ~= "Folder"
+				and parentClass ~= "Model"
+			then
 				return index, "parent class is outside the safe creation subset"
 			end
 			local parentKey = pathKey(parentPath)
@@ -872,8 +935,11 @@ local function applyAction(action)
 					created.Anchored = true
 				end
 				created.Parent = parent
-				if created.Parent ~= parent or created.ClassName ~= operation.class_name
-					or (created:IsA("BasePart") and not created.Anchored) then
+				if
+					created.Parent ~= parent
+					or created.ClassName ~= operation.class_name
+					or (created:IsA("BasePart") and not created.Anchored)
+				then
 					error("created instance did not match the reviewed action")
 				end
 			else
@@ -886,10 +952,17 @@ local function applyAction(action)
 					if operation.property == "Color" then
 						local actual = target.Color
 						local value = operation.value
-						error(string.format(
-							"Color readback mismatch (requested %.6f, %.6f, %.6f; got %.6f, %.6f, %.6f)",
-							value.r, value.g, value.b, actual.R, actual.G, actual.B
-						))
+						error(
+							string.format(
+								"Color readback mismatch (requested %.6f, %.6f, %.6f; got %.6f, %.6f, %.6f)",
+								value.r,
+								value.g,
+								value.b,
+								actual.R,
+								actual.G,
+								actual.B
+							)
+						)
 					end
 					error("property readback did not match the approved value")
 				end
@@ -917,14 +990,18 @@ local function applyAction(action)
 				table.insert(uncertainOperations, skipped)
 			end
 			pcall(function()
-				ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+				ChangeHistoryService:FinishRecording(
+					recording,
+					Enum.FinishRecordingOperation.Commit
+				)
 			end)
 			return {
 				action_id = action.action_id,
 				outcome = "indeterminate",
 				operations = uncertainOperations,
 			},
-				"Apply stopped with an uncertain operation. The API will lock further delivery. " .. issue
+				"Apply stopped with an uncertain operation. The API will lock further delivery. "
+					.. issue
 		end
 	end
 
@@ -934,8 +1011,8 @@ local function applyAction(action)
 	for _, operation in ipairs(action.operations) do
 		table.insert(operations, { op_id = operation.op_id, status = "applied" })
 	end
-	local notice = finishOk and "Changes applied and recorded for Undo." or
-		"Changes applied; Studio did not confirm the Undo recording."
+	local notice = finishOk and "Changes applied and recorded for Undo."
+		or "Changes applied; Studio did not confirm the Undo recording."
 	return { action_id = action.action_id, outcome = "applied", operations = operations }, notice
 end
 
@@ -944,7 +1021,7 @@ local function sendActionResult(result, action, sessionId)
 	if not response.Success then
 		error(string.format("API result request failed (HTTP %d)", response.StatusCode))
 	end
-	local decoded = HttpService:JSONDecode(response.Body)
+	local decoded = decodeProtocolResponse(response.Body)
 	if decoded.status ~= "ok" then
 		error("API did not accept the edit result; do not retry this action")
 	end
@@ -979,7 +1056,8 @@ local function finishPending(reject)
 	if not ok then
 		executionUncertain = true
 		syncButton.Active = false
-		status.Text = "Result or snapshot was not confirmed. Do not reapply; restart Studio and inspect the API lock."
+		status.Text =
+			"Result or snapshot was not confirmed. Do not reapply; restart Studio and inspect the API lock."
 		review.Text = tostring(issue)
 	else
 		if result.outcome == "indeterminate" then

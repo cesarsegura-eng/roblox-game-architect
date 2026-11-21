@@ -20,27 +20,32 @@ that source. Playtests need a disposable execution boundary.
 
 ## Optional local Studio client
 
-This plugin is an optional compatibility route for users who want reviewed
-edits in an open Roblox Studio session. It is not required for the remote
-Blender MCP workflow or the remote Roblox map-validation service. Roblox Studio's
-built-in MCP server uses local `stdio`; this project does not expose it as a
-remote service. Remote map validation remains a fixed server-side tool and does
-not edit or publish a user's place.
+This plugin is a separate optional compatibility route for projects that use
+RGA's local operator API. It is not required for the agent-first product or its
+remote Blender and Roblox MCP services. It also is not required to use Roblox
+Studio's own native MCP: leave that user-owned connection configured as-is and
+use it directly for supported work in the open place. RGA does not proxy or
+recreate the native Studio connection. Remote RGA map validation remains a
+fixed server-side tool and does not edit the user's open place.
 
-## Install (no extra tools)
+## Install in Studio
 
-The plugin is one self-contained file, `src/Main.plugin.lua`. Copy it into
-Roblox Studio's local plugins folder (in Studio: **Plugins → Plugins Folder**)
-and restart Studio. This needs no Rojo, rokit or Python on the machine that runs
-Studio. Roblox documents loose Lua files in that folder as local plugins; this
-route has **not been exercised in Studio from this repository**, so confirm the
-toolbar button appears. A test keeps the plugin a single file.
+The plugin package contains the main script, strict JSON parser, complete
+protocol subset validator, and generated schema registry under `src/Protocol/`.
+Install the prebuilt `.rbxmx` through
+**Plugins → Manage Plugins → Install from File**. The user needs only Roblox
+Studio; Rojo and rokit are needed only to build the package from source.
+Earlier live smokes exercised plugin load, loopback handshake, snapshot, polling,
+action review, and a bounded apply on disposable places (details below). The
+current Rojo build in this checkout has not yet been installed and rechecked in
+Studio; confirm its toolbar button and rerun the smoke before treating this
+package build as runtime-verified.
 
 The local API that the plugin talks to is a separate process (Python); it is
 needed only for this optional compatibility route, not to open a generated place
 file in Studio.
 
-## Build as a model (contributors)
+## Build the installable model (contributors)
 
 To produce an installable model instead, install the pinned tools with
 `rokit install`, then build:

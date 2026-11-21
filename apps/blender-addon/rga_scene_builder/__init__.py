@@ -159,6 +159,7 @@ def _build_recipe(context: bpy.types.Context, recipe: dict) -> int:
                 name=spec["name"],
                 location=tuple(spec["location"]),
                 scale=tuple(spec["scale"]),
+                silhouette=spec.get("silhouette", "balanced"),
             )
             created.extend((armature, *parts))
         for obj in tuple(context.selected_objects):
@@ -308,6 +309,17 @@ class RGA_OT_create_humanoid(Operator):
         ),
         default="WALK",
     )
+    silhouette: EnumProperty(
+        name="Silhouette",
+        description="Choose bounded body proportions for this stylized blockout",
+        items=(
+            ("balanced", "Balanced", "Default generic proportions"),
+            ("heroic", "Heroic", "Broader torso and limbs"),
+            ("slender", "Slender", "Narrower torso and limbs"),
+            ("round", "Round", "Rounder torso and larger head"),
+        ),
+        default="balanced",
+    )
 
     @classmethod
     def poll(cls, context: bpy.types.Context) -> bool:
@@ -317,7 +329,7 @@ class RGA_OT_create_humanoid(Operator):
         collection = bpy.data.collections.new(f"{_COLLECTION_PREFIX}Character")
         context.scene.collection.children.link(collection)
         try:
-            create_stylized_humanoid(context, collection, self.motion)
+            create_stylized_humanoid(context, collection, self.motion, silhouette=self.silhouette)
         except Exception as exc:
             for obj in tuple(collection.objects):
                 bpy.data.objects.remove(obj, do_unlink=True)

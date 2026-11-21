@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from core.navigation import navigation_status
+from core.navigation import navigation_status, validate_failed_leg
 from core.roblox_place import scene_recipe_collision_payload
 from core.worldbuilding import SceneRecipe
 
@@ -377,6 +377,7 @@ class OpenCloudMapValidator:
             "path_feature_count",
             "navigation_waypoint_count",
             "navigation_connected",
+            "navigation_failed_leg",
         }
         if (
             set(result) != required
@@ -398,6 +399,12 @@ class OpenCloudMapValidator:
                 result["navigation_waypoint_count"],
                 result["navigation_connected"],
             )
+            validate_failed_leg(
+                recipe,
+                result["validation_status"],
+                result["navigation_failed_leg"],
+                result["navigation_waypoint_count"],
+            )
         except ValueError as exc:
             raise RobloxCloudError(
                 "fixed harness returned contradictory navigation evidence"
@@ -410,6 +417,7 @@ class OpenCloudMapValidator:
                 "navigation_waypoint_count",
                 "navigation_connected",
                 "validation_status",
+                "navigation_failed_leg",
             )
         }
 

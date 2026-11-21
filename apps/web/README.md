@@ -54,6 +54,10 @@ and JavaScript so the local API adds no framework dependency.
   validate whether the generated recipe supports each trigger. The
   Studio blockout checks required feature
   labels and basic elongated route geometry before it is queued.
+  The plan view can also request a separate release-readiness report with nine
+  explicit, evidence-oriented gates; all start pending, and owners must decide
+  whether persistence, commerce, and multiplayer apply. It never certifies a
+  Roblox runtime, policy review, or release.
 - **Remaining:** general model-authored gameplay remains gated on the broader
   source-policy and disposable-execution controls. Game Plan rules configure
   only the fixed actions supported by `rule_game`.

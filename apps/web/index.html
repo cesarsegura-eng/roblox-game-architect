@@ -67,8 +67,13 @@
         <div id="game-plan-quote-result" class="notice" role="status" aria-live="polite"></div>
         <div id="game-plan-result" class="notice" role="status" aria-live="polite"></div>
         <div id="game-plan-output" class="recipe-output" hidden>
-          <div class="section-heading"><h3>Game plan</h3><div class="button-group"><button id="download-game-plan" class="button quiet" type="button">Download JSON</button><button id="use-plan-world-brief" class="button quiet" type="button">Set up map build</button></div></div>
+          <div class="section-heading"><h3>Game plan</h3><div class="button-group"><button id="download-game-plan" class="button quiet" type="button">Download JSON</button><button id="review-release-readiness" class="button quiet" type="button">Review release gates</button><button id="use-plan-world-brief" class="button quiet" type="button">Set up map build</button></div></div>
           <pre id="game-plan-json"></pre>
+          <div id="release-readiness-output" class="release-readiness" hidden>
+            <div class="section-heading"><h3>Release readiness</h3><div class="button-group"><span id="release-readiness-status" class="badge">Not ready</span><button id="download-release-readiness" class="button quiet" type="button">Download report</button></div></div>
+            <p id="release-readiness-notice" class="copy"></p>
+            <pre id="release-readiness-json"></pre>
+          </div>
         </div>
       </section>
 

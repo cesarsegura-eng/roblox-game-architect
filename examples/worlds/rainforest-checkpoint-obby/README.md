@@ -38,6 +38,23 @@ The check verifies the artifact's server script, rules and touch targets, then
 exercises two rounds with simulated players. Roblox physics, actual avatar
 contacts, networking and respawn still require an engine playtest.
 
+For the Obby mode, build the place as shown below, then run
+`python tools/check_rainforest_obby.py dist/rainforest-checkpoint-obby.rbxlx
+--lute .tools/lute-1.0.0/lute.exe`. This verifies the serialized checkpoint
+order and exact fixed server script, then simulates out-of-order touches,
+checkpoint progression, finish/reset, hazards and independent player progress.
+The Lute simulation checks server-template logic; it does not simulate Roblox
+physics, walking, network timing or actual character respawns.
+
+For Treasure Hunt mode, run
+`python tools/check_rainforest_treasure_hunt.py
+dist/rainforest-treasure-hunt.rbxlx --lute .tools/lute-1.0.0/lute.exe` after
+building the same recipe with `--gameplay-mode treasure_hunt`. The verifier
+checks the serialized touch triggers, start spawn and exact fixed server
+script, then simulates independent player progress, duplicate contacts, reset
+debounce and two consecutive wins. It does not simulate Roblox engine
+contacts, physics, networking or production-server behavior.
+
 ## Build a single place on the authoring host
 
 Build an `.rbxlx` place artifact with pinned Rojo 7.7.1 available on the
@@ -49,6 +66,12 @@ python tools/build_roblox_place.py \
   dist/rainforest-checkpoint-obby.rbxlx \
   --gameplay-mode obby
 ```
+
+For this mode, the recipe's `path` objects define the checkpoint sequence. The
+builder rejects consecutive pieces that are spatially disconnected, even if
+the route pieces connect in some other ordering. This example lists the trail,
+ridge connector, canopy bridge, summit connector, and summit walkway from start
+to finish.
 
 The same recipe also demonstrates a complete data-driven collect-and-win loop.
 Collect the three canopy coins along the route (one session point each), then
@@ -64,8 +87,8 @@ python tools/build_roblox_place.py \
   --gameplay-rules examples/worlds/rainforest-checkpoint-obby/gameplay-rules.json
 ```
 
-`rule_game` supports touch-triggered `award_points`, `heal`, `eliminate`, and
-threshold-based `award_win` effects through one repository-owned server script.
+`rule_game` supports touch-triggered `award_points`, `heal`, timed `speed_boost`,
+`eliminate`, and threshold-based `award_win` effects through one repository-owned server script.
 The fixed server template creates a per-player objective panel with points and
 wins, updates it on interactions, and retains it through character respawns.
 The panel states that progress lasts for the session. Wins and points are
@@ -126,22 +149,70 @@ retained. Successful Output includes `RGA_ENGINE_TWO_ROUNDS_PASS` and
 `RGA_ENGINE_HAZARD_RESPAWN_PASS`. An assertion or missing marker is a failed or
 incomplete check. Stop Play Solo afterward. Do not insert this test driver into
 a delivered place. Teleportation does not validate the walking route or player
-controls. The driver has passed syntax validation but has not yet completed
-an engine run; it is not acceptance evidence by itself.
+controls.
 
-Partial Studio check on 2026-11-06: the current artifact opened and Play Solo
-started; the character appeared on the start platform. Studio displayed its
-Compatibility-to-Voxel lighting migration notice. Automated keyboard input did
-not move the character, so collectible scoring, the win condition, hazard
-respawn, repeatability, and the Output panel remain unverified. The full
-checklist has not been completed. It also does not cover multiplayer races,
-persistence, low-end device performance, or live Open Cloud behavior.
+Studio engine check on 2026-11-07: Roblox Studio `0.746.0.7461269`, Play Solo,
+one player, on `dist/rainforest-rule-game-hud.rbxlx`. The server Output showed
+`RGA_ENGINE_ROUND_PASS` for rounds 1 and 2, `RGA_ENGINE_TWO_ROUNDS_PASS`, and
+`RGA_ENGINE_HAZARD_RESPAWN_PASS`. This verifies the fixed rule script's actual
+engine contacts, score threshold, early-goal rejection, duplicate-contact
+idempotency, score reset, win count, hazard elimination, respawn, and retained
+HUD on this Studio build. The Studio driver teleports the character to trigger
+parts; it does not verify walking controls, route navigability, multiplayer
+races, persistence, low-end device performance, or live Open Cloud behavior.
 
-Artifact check on 2026-11-06: the current `rule_game` build contains 19 recipe
-objects, 19 place Parts, and one server Script whose name and source match the
-repository-owned template exactly. The validated artifact is 31,777 bytes with
-SHA-256 `2375fae0c2230c191e1bc56a7463c1ecc91d0757b55b1e0976839f131034acca`.
-This confirms artifact structure and trusted-script selection. The Studio
-opening and Play Solo check confirms the place loads and starts locally; it does
-not verify the collect-and-win flow or behavior against a live Roblox place.
+Artifact check on 2026-11-07: `dist/rainforest-rule-game-hud.rbxlx` contains 19
+recipe objects, 19 place Parts, and one server Script whose name and source
+match the repository-owned template exactly. The current artifact is 33,721
+bytes with SHA-256
+`ecd46d16f0614c9ca96d05b19264f200e5e24271113b0ce0231fa50e12443cec`; the
+`dist/rainforest-rule-game-e2e.rbxlx` build has the same digest. The current
+artifact passed the fixed-template and two-round Luau simulation check.
+
+Obby build check on 2026-11-07: `dist/rainforest-checkpoint-obby.rbxlx` is
+32,747 bytes with SHA-256
+`07278b2bc43de5324add2dda0ec5d26e00c54045cd8a33e009af96b6346cbd76`. Its five
+generated checkpoints serialize in recipe order at Roblox Z positions
+`-1, 14, 29, 44, 59`, confirming the fixed server template starts at the trail
+and advances through the summit in sequence. This is structural build evidence,
+not a walking, multiplayer, or production playtest.
+
+Obby template simulation on 2026-11-07: the same artifact passed
+`tools/check_rainforest_obby.py` with pinned Lute 1.0.0. It confirmed rejection
+of early and skipped checkpoints, duplicate touch handling, finish/reset,
+hazard elimination, and independent two-player route progress. This is a
+deterministic simulation of the reviewed server template, not Roblox engine
+evidence.
+
+Obby Studio engine check on 2026-11-07: a fresh one-player Play Solo session
+ran `tools/studio_rainforest_obby.luau` from the **Server** command bar. Output
+showed `RGA_OBBY_NAVIGATION_PASS 4`, `RGA_OBBY_SEQUENCE_FINISH_PASS 1 1`,
+and `RGA_OBBY_HAZARD_RESPAWN_PASS`. Roblox `PathfindingService` returned a
+successful path with waypoints for each of the four consecutive checkpoint
+legs using a 2-stud radius, 5-stud height, jump-capable agent. The test also
+exercised actual engine touch events for early and skipped checkpoint
+rejection, duplicate touches, sequential progress, one finish win, start
+respawn selection, hazard elimination, and character respawn. The driver
+teleports the character, so the pathfinding result does not prove that a human
+can walk the route with normal controls; multiplayer, persistence, mobile
+devices, and live servers also remain untested. Play Solo was stopped; the
+artifact was not saved or published.
+
+The rule-game Studio check ran against the earlier rule-game artifact before
+the recipe path objects were reordered for Obby checkpoints. Its gameplay
+template and collectible, hazard, and landmark positions are unchanged. The
+current Obby artifact now also has the separate engine evidence above.
+
+Fresh build check on 2026-11-07: `dist/rga-verified-obby.rbxlx` was generated
+from the current recipe and passed the pinned Lute 1.0.0 artifact/template
+simulation (`RGA_OBBY_ORDER_FINISH_PASS`, `RGA_OBBY_HAZARD_ISOLATION_PASS`,
+`RGA_OBBY_MULTIPLAYER_PROGRESS_PASS`). It is 32,747 bytes with SHA-256
+`07278b2bc43de5324add2dda0ec5d26e00c54045cd8a33e009af96b6346cbd76`.
+`dist/rga-verified-treasure-hunt.rbxlx` was also freshly generated and passed
+the artifact/template simulation for independent two-player progress, two
+rounds, duplicate touches, and reset debounce. It is 28,266 bytes with SHA-256
+`05f3bdace227e12324aa07c4d6beb8362a2d5e9982f1f4230bef72aeb26ff93f`.
+These are newly generated local artifacts and deterministic template
+simulations; neither is Roblox engine evidence. Roblox Studio was not available
+in this session, so no new Studio run or place upload is claimed.
 

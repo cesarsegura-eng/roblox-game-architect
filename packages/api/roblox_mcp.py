@@ -16,8 +16,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from core.asset_approval import sign_asset_approval
+from core.asset_limits import ROBLOX_MODEL_UPLOAD_MAX_BYTES
 from core.gameplay_templates import GAMEPLAY_MODES, gameplay_script, validate_gameplay_mode
-from core.navigation import navigation_status
+from core.navigation import navigation_status, validate_failed_leg
 from core.place_approval import sign_place_publish_approval
 from core.roblox_place import _validate_imported_model_tree, validate_gameplay_rules_artifact
 from core.worldbuilding import SceneRecipe
@@ -29,7 +30,7 @@ BUILD_TOOL_NAME = "rga_build_place"
 ASSET_UPLOAD_TOOL_NAME = "rga_upload_reviewed_model"
 ASSET_STATUS_TOOL_NAME = "rga_check_model_upload"
 PLACE_PUBLISH_TOOL_NAME = "rga_publish_reviewed_place"
-MAX_GLB_UPLOAD_BYTES = 19 * 1024 * 1024
+MAX_GLB_UPLOAD_BYTES = ROBLOX_MODEL_UPLOAD_MAX_BYTES
 MAX_PLACE_PUBLISH_BYTES = 8_000_000
 
 
@@ -47,6 +48,7 @@ class RobloxValidationReceipt:
     path_feature_count: int
     navigation_waypoint_count: int
     navigation_connected: bool
+    navigation_failed_leg: dict[str, object] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -692,10 +694,12 @@ class RobloxMCPClient:
             or schema.get("type") != "object"
             or schema.get("additionalProperties") is not False
             or set(props)
-            != {"recipe", "request_id", "gameplay_mode", "gameplay_rules", "model_asset_id"}
+            != {"recipe", "plan", "request_id", "gameplay_mode", "gameplay_rules", "model_asset_id"}
             or set(schema.get("required", [])) != {"recipe", "request_id"}
             or not isinstance(props.get("recipe"), dict)
             or props["recipe"].get("type") != "object"
+            or not isinstance(props.get("plan"), dict)
+            or props["plan"].get("type") != "object"
             or not isinstance(props.get("request_id"), dict)
             or props["request_id"].get("type") != "string"
             or not isinstance(props.get("gameplay_mode"), dict)
@@ -767,6 +771,7 @@ class RobloxMCPClient:
             "path_feature_count",
             "navigation_waypoint_count",
             "navigation_connected",
+            "navigation_failed_leg",
         }
         if not isinstance(value, dict) or set(value) != keys:
             raise RobloxMCPError("remote Roblox validation returned an invalid receipt")
@@ -800,6 +805,15 @@ class RobloxMCPClient:
             ) from exc
         if value["validation_status"] != expected_status:
             raise RobloxMCPError("remote Roblox validation status contradicts its evidence")
+        try:
+            validate_failed_leg(
+                recipe,
+                expected_status,
+                value["navigation_failed_leg"],
+                value["navigation_waypoint_count"],
+            )
+        except ValueError as exc:
+            raise RobloxMCPError("remote Roblox returned an invalid route diagnostic") from exc
         return RobloxValidationReceipt(**value)
 
     def _post(

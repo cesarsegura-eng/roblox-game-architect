@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import struct
@@ -10,9 +12,11 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "packages"))
 
 from api.blender_mcp import BlenderMCPClient  # noqa: E402
+from apps.roblox_mcp_server.assets import MAX_GLB_BYTES, _validate_glb  # noqa: E402
 from core.worldbuilding import SceneRecipe  # noqa: E402
 
 
@@ -65,11 +69,26 @@ def main() -> None:
     expected_objects = SceneRecipe.from_mapping(recipe).rendered_object_count
     request_id = str(uuid.uuid4())
     client = BlenderMCPClient(endpoint, token, timeout=240)
-    receipt = client.apply_recipe(recipe, request_id)
+    receipt = client.apply_recipe(recipe, request_id, include_preview=True)
     if receipt.request_id != request_id or receipt.object_count != expected_objects:
         raise RuntimeError("remote MCP returned an unexpected build receipt")
+    if not receipt.preview_png or receipt.preview_png[:8] != b"\x89PNG\r\n\x1a\n":
+        raise RuntimeError("remote MCP did not return the requested PNG preview")
 
-    document = _read_glb_document(client.download_artifact(receipt.artifact_id))
+    artifact = client.download_artifact(
+        receipt.artifact_id, expected_sha256=receipt.artifact_sha256
+    )
+    artifact_sha256 = hashlib.sha256(artifact).hexdigest()
+    if not hmac.compare_digest(artifact_sha256, receipt.artifact_sha256):
+        raise RuntimeError("remote MCP GLB does not match its receipt SHA-256")
+    try:
+        _validate_glb(artifact, MAX_GLB_BYTES)
+    except ValueError as exc:
+        raise RuntimeError("remote Blender GLB failed the Roblox asset preflight") from exc
+    document = _read_glb_document(artifact)
+    extensions = document.get("extensionsUsed", [])
+    if not isinstance(extensions, list) or "KHR_lights_punctual" in extensions:
+        raise RuntimeError("remote Blender GLB contains a Roblox-unsupported light extension")
     if any(
         not isinstance(document.get(key), list) or not document[key]
         for key in ("meshes", "skins", "animations")
@@ -78,7 +97,10 @@ def main() -> None:
     print(
         "RGA_REMOTE_BLENDER_SMOKE_OK "
         f"objects={receipt.object_count} meshes={len(document['meshes'])} "
-        f"skins={len(document['skins'])} animations={len(document['animations'])}"
+        f"skins={len(document['skins'])} animations={len(document['animations'])} "
+        f"preview_bytes={len(receipt.preview_png)} "
+        "roblox_preflight=passed "
+        f"sha256={artifact_sha256}"
     )
 
 

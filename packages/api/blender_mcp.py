@@ -6,26 +6,34 @@ server must expose ``rga_apply_scene_recipe`` with the exact input shape below.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import http.client
 import json
 import re
 import ssl
 import struct
+import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, parse_qsl, urlsplit
 
 MODERN_PROTOCOL_VERSION = "2026-07-28"
 LEGACY_PROTOCOL_VERSION = "2025-11-25"
 CLIENT_NAME = "roblox-game-architect"
 CLIENT_VERSION = "0.0.0"
 RECIPE_TOOL = "rga_apply_scene_recipe"
-_MAX_RESPONSE_BYTES = 1_200_000
+_MAX_RESPONSE_BYTES = 1_600_000
 _MAX_TOOL_PAGES = 8
 _BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*\Z", re.ASCII)
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
 _MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+_MAX_PREVIEW_BYTES = 1 * 1024 * 1024
+_PREVIEW_SIZE = 512
+_ARTIFACT_DOWNLOAD_TTL_SECONDS = 15 * 60
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +44,9 @@ class BlenderMCPReceipt:
     artifact_id: str
     recipe_name: str
     object_count: int
+    artifact_sha256: str
+    artifact_download_url: str | None = None
+    preview_png: bytes | None = None
 
 
 def _parse_json(body: bytes) -> object:
@@ -53,6 +64,25 @@ def _parse_json(body: bytes) -> object:
     if len(body) > _MAX_RESPONSE_BYTES:
         raise ValueError("MCP response exceeds the size limit")
     return json.loads(body, object_pairs_hook=unique, parse_constant=reject_constant)
+
+
+def _same_http_authority(left: SplitResult, right: SplitResult) -> bool:
+    """Compare URL hosts and effective ports, treating an explicit default port normally."""
+    try:
+        left_port = left.port
+        right_port = right.port
+    except ValueError:
+        return False
+    if left_port is None:
+        left_port = 443 if left.scheme == "https" else 80
+    if right_port is None:
+        right_port = 443 if right.scheme == "https" else 80
+    return bool(
+        left.hostname
+        and right.hostname
+        and left.hostname.lower() == right.hostname.lower()
+        and left_port == right_port
+    )
 
 
 class BlenderMCPError(RuntimeError):
@@ -101,8 +131,21 @@ class BlenderMCPClient:
         """The configured server host, safe for the local audit log."""
         return self._endpoint.hostname or "unknown"
 
-    def apply_recipe(self, recipe: Mapping[str, Any], request_id: str) -> BlenderMCPReceipt:
+    def apply_recipe(
+        self,
+        recipe: Mapping[str, Any],
+        request_id: str,
+        *,
+        include_preview: bool = False,
+        preview_mode: str = "isometric",
+    ) -> BlenderMCPReceipt:
         """Send a recipe to the fixed Blender tool and verify its artifact receipt."""
+        if not isinstance(include_preview, bool):
+            raise ValueError("include_preview must be a boolean")
+        if not isinstance(preview_mode, str) or preview_mode not in {"isometric", "cutaway"}:
+            raise ValueError("preview_mode must be isometric or cutaway")
+        if preview_mode != "isometric" and not include_preview:
+            raise ValueError("preview_mode requires include_preview")
         try:
             uuid.UUID(request_id)
         except (AttributeError, TypeError, ValueError) as exc:
@@ -110,9 +153,21 @@ class BlenderMCPClient:
         connection = self._connection()
         try:
             try:
-                receipt = self._apply_modern(connection, dict(recipe), request_id)
+                receipt = self._apply_modern(
+                    connection,
+                    dict(recipe),
+                    request_id,
+                    include_preview=include_preview,
+                    preview_mode=preview_mode,
+                )
             except _LegacyServerDetected:
-                receipt = self._apply_legacy(connection, dict(recipe), request_id)
+                receipt = self._apply_legacy(
+                    connection,
+                    dict(recipe),
+                    request_id,
+                    include_preview=include_preview,
+                    preview_mode=preview_mode,
+                )
             return receipt
         except BlenderMCPError:
             raise
@@ -180,7 +235,13 @@ class BlenderMCPClient:
             connection.close()
 
     def _apply_modern(
-        self, connection: http.client.HTTPConnection, recipe: dict[str, Any], request_id: str
+        self,
+        connection: http.client.HTTPConnection,
+        recipe: dict[str, Any],
+        request_id: str,
+        *,
+        include_preview: bool,
+        preview_mode: str,
     ) -> BlenderMCPReceipt:
         response = self._post(
             connection,
@@ -188,7 +249,12 @@ class BlenderMCPClient:
             modern=True,
         )[0]
         tool = self._find_recipe_tool(connection, response, modern=True)
-        self._check_tool_schema(tool)
+        self._check_tool_schema(tool, include_preview=include_preview, preview_mode=preview_mode)
+        arguments = {"recipe": recipe, "request_id": request_id}
+        if include_preview:
+            arguments["include_preview"] = True
+            if preview_mode != "isometric":
+                arguments["preview_mode"] = preview_mode
         call = self._post(
             connection,
             self._modern_message(
@@ -196,7 +262,7 @@ class BlenderMCPClient:
                 "tools/call",
                 {
                     "name": RECIPE_TOOL,
-                    "arguments": {"recipe": recipe, "request_id": request_id},
+                    "arguments": arguments,
                 },
             ),
             modern=True,
@@ -206,10 +272,16 @@ class BlenderMCPClient:
             raise BlenderMCPError("remote Blender MCP tool returned an invalid response")
         if result.get("isError") is True:
             raise BlenderMCPError("remote Blender MCP rejected the scene recipe")
-        return self._receipt(result, request_id, recipe)
+        return self._receipt(result, request_id, recipe, include_preview=include_preview)
 
     def _apply_legacy(
-        self, connection: http.client.HTTPConnection, recipe: dict[str, Any], request_id: str
+        self,
+        connection: http.client.HTTPConnection,
+        recipe: dict[str, Any],
+        request_id: str,
+        *,
+        include_preview: bool,
+        preview_mode: str,
     ) -> BlenderMCPReceipt:
         initialized = self._post(
             connection,
@@ -240,7 +312,14 @@ class BlenderMCPClient:
                 allow_accepted=True,
             )
             tool = self._find_recipe_tool(connection, modern=False, session_id=session_id)
-            self._check_tool_schema(tool)
+            self._check_tool_schema(
+                tool, include_preview=include_preview, preview_mode=preview_mode
+            )
+            arguments = {"recipe": recipe, "request_id": request_id}
+            if include_preview:
+                arguments["include_preview"] = True
+                if preview_mode != "isometric":
+                    arguments["preview_mode"] = preview_mode
             call = self._post(
                 connection,
                 {
@@ -249,7 +328,7 @@ class BlenderMCPClient:
                     "method": "tools/call",
                     "params": {
                         "name": RECIPE_TOOL,
-                        "arguments": {"recipe": recipe, "request_id": request_id},
+                        "arguments": arguments,
                     },
                 },
                 session_id=session_id,
@@ -260,51 +339,103 @@ class BlenderMCPClient:
                 raise BlenderMCPError("remote Blender MCP tool returned an invalid response")
             if result.get("isError") is True:
                 raise BlenderMCPError("remote Blender MCP rejected the scene recipe")
-            return self._receipt(result, request_id, recipe)
+            return self._receipt(result, request_id, recipe, include_preview=include_preview)
         finally:
             if session_id:
                 self._delete_session(connection, session_id, LEGACY_PROTOCOL_VERSION)
 
-    @staticmethod
     def _receipt(
-        result: dict[str, Any], request_id: str, recipe: dict[str, Any]
+        self,
+        result: dict[str, Any],
+        request_id: str,
+        recipe: dict[str, Any],
+        *,
+        include_preview: bool,
     ) -> BlenderMCPReceipt:
         value = result.get("structuredContent")
         try:
             from core.worldbuilding import SceneRecipe
 
             expected_count = SceneRecipe.from_mapping(recipe).rendered_object_count
+            required = {
+                "request_id",
+                "artifact_id",
+                "recipe_name",
+                "object_count",
+                "artifact_sha256",
+            }
             if (
                 not isinstance(value, dict)
-                or set(value) != {"request_id", "artifact_id", "recipe_name", "object_count"}
+                or not required.issubset(value)
+                or set(value) - required - {"artifact_download_url"}
                 or value["request_id"] != request_id
                 or value["recipe_name"] != recipe.get("name")
                 or type(value["object_count"]) is not int
                 or value["object_count"] != expected_count
+                or not isinstance(value["artifact_sha256"], str)
+                or not _SHA256.fullmatch(value["artifact_sha256"])
             ):
                 raise ValueError("receipt fields differ from the requested recipe")
             artifact_id = str(uuid.UUID(value["artifact_id"]))
             if artifact_id != value["artifact_id"].lower():
                 raise ValueError("artifact id is not canonical")
+            artifact_download_url = value.get("artifact_download_url")
+            if artifact_download_url is not None:
+                parsed_download = urlsplit(artifact_download_url)
+                if (
+                    not isinstance(artifact_download_url, str)
+                    or parsed_download.scheme != "https"
+                    or not _same_http_authority(parsed_download, self._endpoint)
+                    or parsed_download.path != f"/artifacts/{artifact_id}.glb"
+                    or parsed_download.username is not None
+                    or parsed_download.password is not None
+                    or parsed_download.fragment
+                ):
+                    raise ValueError("artifact download URL is not bound to this Blender host")
+                query_pairs = parse_qsl(
+                    parsed_download.query, keep_blank_values=True, strict_parsing=True
+                )
+                query = dict(query_pairs)
+                if (
+                    len(query_pairs) != 2
+                    or set(query) != {"expires", "signature"}
+                    or not query["expires"].isdecimal()
+                    or not re.fullmatch(r"[0-9a-f]{64}", query["signature"])
+                ):
+                    raise ValueError("artifact download URL has invalid capability fields")
+                expires = int(query["expires"])
+                now = int(time.time())
+                if expires <= now or expires > now + _ARTIFACT_DOWNLOAD_TTL_SECONDS:
+                    raise ValueError("artifact download URL is expired or has excessive lifetime")
+            preview_png = (
+                self._preview_from_content(result.get("content")) if include_preview else None
+            )
             return BlenderMCPReceipt(
                 request_id=request_id,
                 artifact_id=artifact_id,
                 recipe_name=value["recipe_name"],
                 object_count=value["object_count"],
+                artifact_sha256=value["artifact_sha256"],
+                artifact_download_url=artifact_download_url,
+                preview_png=preview_png,
             )
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise BlenderMCPError(
                 "remote Blender MCP returned an invalid artifact receipt"
             ) from exc
 
-    def download_artifact(self, artifact_id: str) -> bytes:
-        """Fetch only an ID-addressed GLB from the configured authenticated server."""
+    def download_artifact(self, artifact_id: str, *, expected_sha256: str | None = None) -> bytes:
+        """Fetch an ID-addressed GLB and, when supplied, bind it to its receipt digest."""
         try:
             canonical = str(uuid.UUID(artifact_id))
         except (AttributeError, TypeError, ValueError) as exc:
             raise ValueError("artifact_id must be a UUID") from exc
         if canonical != artifact_id.lower():
             raise ValueError("artifact_id must use canonical UUID syntax")
+        if expected_sha256 is not None and (
+            not isinstance(expected_sha256, str) or not _SHA256.fullmatch(expected_sha256)
+        ):
+            raise ValueError("expected_sha256 must be 64 lowercase hexadecimal characters")
         connection = self._connection()
         try:
             connection.request(
@@ -321,6 +452,12 @@ class BlenderMCPClient:
             if len(data) > _MAX_ARTIFACT_BYTES:
                 raise BlenderMCPError("remote Blender MCP artifact exceeds the size limit")
             self._validate_glb_bytes(data)
+            if expected_sha256 is not None and not hmac.compare_digest(
+                hashlib.sha256(data).hexdigest(), expected_sha256
+            ):
+                raise BlenderMCPError(
+                    "remote Blender MCP artifact does not match its receipt SHA-256"
+                )
             return data
         except BlenderMCPError:
             raise
@@ -526,7 +663,9 @@ class BlenderMCPClient:
         raise BlenderMCPError(f"remote server must expose the {RECIPE_TOOL} tool")
 
     @staticmethod
-    def _check_tool_schema(tool: dict[str, Any]) -> None:
+    def _check_tool_schema(
+        tool: dict[str, Any], *, include_preview: bool = False, preview_mode: str = "isometric"
+    ) -> None:
         schema = tool.get("inputSchema")
         if not isinstance(schema, dict):
             raise BlenderMCPError("remote recipe tool has no input schema")
@@ -535,14 +674,63 @@ class BlenderMCPClient:
             schema.get("type") != "object"
             or schema.get("additionalProperties") is not False
             or not isinstance(properties, dict)
-            or set(properties) != {"recipe", "request_id"}
+            or set(properties) - {"recipe", "request_id", "include_preview", "preview_mode"}
+            or not {"recipe", "request_id"} <= set(properties)
             or set(schema.get("required", [])) != {"recipe", "request_id"}
             or not isinstance(properties.get("recipe"), dict)
             or properties["recipe"].get("type") != "object"
             or not isinstance(properties.get("request_id"), dict)
             or properties["request_id"].get("type") != "string"
+            or (
+                "include_preview" in properties
+                and (
+                    not isinstance(properties["include_preview"], dict)
+                    or properties["include_preview"].get("type") != "boolean"
+                )
+            )
+            or (include_preview and "include_preview" not in properties)
+            or (
+                "preview_mode" in properties
+                and (
+                    not isinstance(properties["preview_mode"], dict)
+                    or properties["preview_mode"].get("type") != "string"
+                    or properties["preview_mode"].get("enum") != ["isometric", "cutaway"]
+                )
+            )
+            or (preview_mode == "cutaway" and "preview_mode" not in properties)
         ):
             raise BlenderMCPError("remote recipe tool does not match the safe RGA tool contract")
+
+    @staticmethod
+    def _preview_from_content(content: object) -> bytes:
+        if not isinstance(content, list):
+            raise BlenderMCPError("remote Blender MCP did not return the requested preview")
+        image = next(
+            (
+                item
+                for item in content
+                if isinstance(item, dict)
+                and item.get("type") == "image"
+                and item.get("mimeType") == "image/png"
+            ),
+            None,
+        )
+        if not isinstance(image, dict) or not isinstance(image.get("data"), str):
+            raise BlenderMCPError("remote Blender MCP did not return the requested preview")
+        try:
+            data = base64.b64decode(image["data"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise BlenderMCPError("remote Blender MCP returned an invalid preview image") from exc
+        if (
+            not 45 <= len(data) <= _MAX_PREVIEW_BYTES
+            or data[:8] != b"\x89PNG\r\n\x1a\n"
+            or data[12:16] != b"IHDR"
+            or b"IDAT" not in data
+            or data[-12:] != b"\x00\x00\x00\x00IEND\xaeB`\x82"
+            or struct.unpack(">II", data[16:24]) != (_PREVIEW_SIZE, _PREVIEW_SIZE)
+        ):
+            raise BlenderMCPError("remote Blender MCP returned an invalid preview image")
+        return data
 
     def _delete_session(
         self, connection: http.client.HTTPConnection, session_id: str, protocol_version: str

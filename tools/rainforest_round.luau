@@ -57,15 +57,16 @@ rulesValue.Value = "verified rainforest rules"
 
 local function avatar()
     local player = node("Player")
+    rawset(player, "Parent", true)
     child(player, "PlayerGui", "PlayerGui")
-    local humanoid = {Health = 100, MaxHealth = 100}
+    local humanoid = {Health = 100, MaxHealth = 100, WalkSpeed = 16, Parent = true}
     local character = {player = player, FindFirstChildOfClass = function(_, name)
         if name == "Humanoid" then return humanoid end
     end}
     return player, {FindFirstAncestorOfClass = function() return character end}, humanoid
 end
 
-local alice, aHit = avatar()
+local alice, aHit, aHumanoid = avatar()
 local bob, bHit, bHumanoid = avatar()
 local players = {
     PlayerAdded = signal(), PlayerRemoving = signal(),
@@ -78,15 +79,42 @@ local services = {Players = players, Workspace = workspace, HttpService = {
         return require("./rules")
     end,
 }}
+local delayed = {}
+local function advance(seconds)
+    local pending = {}
+    for _, timer in delayed do
+        timer.remaining -= seconds
+        if timer.remaining <= 0 then
+            timer.callback()
+        else
+            table.insert(pending, timer)
+        end
+    end
+    delayed = pending
+end
 run({GetService = function(_, name) return assert(services[name]) end}, {new = node},
-    {spawn = function(fn, ...) fn(...) end},
+    {
+        spawn = function(fn, ...) fn(...) end,
+        delay = function(seconds, fn)
+            table.insert(delayed, {remaining = seconds, callback = fn})
+        end,
+    },
     {fromScale = function(x, y) return {x, y} end,
         new = function(...) return {...} end},
-    {fromRGB = function(r, g, b) return {r, g, b} end})
+    {fromRGB = function(r, g, b) return {r, g, b} end},
+    {
+        AutomaticSize = {Y = "Y"},
+        TextXAlignment = {Left = "Left"},
+        TextYAlignment = {Center = "Center"},
+        ZIndexBehavior = {Sibling = "Sibling"},
+    })
 players.PlayerAdded:fire(bob)
 assert(alice.RespawnLocation == spawn and bob.RespawnLocation == spawn)
 local aliceHud = alice.PlayerGui["RGA Objective"]
 assert(aliceHud.ResetOnSpawn == false)
+assert(aliceHud.IgnoreGuiInset == false and aliceHud.DisplayOrder == 10)
+assert(aliceHud.Progress.AutomaticSize == "Y" and aliceHud.Progress.TextWrapped)
+assert(aliceHud.Progress.TextScaled == false and aliceHud.Progress.Size[1] == 0.92)
 assert(string.find(aliceHud.Progress.Text, "Earn 3 points", 1, true))
 goal.Touched:fire(aHit)
 assert(alice.leaderstats.Wins.Value == 0)
@@ -102,11 +130,19 @@ for round = 1, 2 do
         assert(alice.leaderstats.Points.Value == i)
         assert(string.find(aliceHud.Progress.Text, "Points: " .. i, 1, true))
     end
+    assert(alice.leaderstats.Points.Value == 3)
+    assert(string.find(aliceHud.Progress.Text, "Points: 3", 1, true))
     goal.Touched:fire(aHit)
     goal.Touched:fire(aHit)
     assert(alice.leaderstats.Points.Value == 0 and alice.leaderstats.Wins.Value == round)
     assert(string.find(aliceHud.Progress.Text, "Wins: " .. round, 1, true))
     assert(string.find(aliceHud.Progress.Text, "Points: 0", 1, true))
     assert(bob.leaderstats.Points.Value == 1 and bob.leaderstats.Wins.Value == 0)
+    if round == 1 then
+        advance(1)
+    end
 end
-print("Passed two rounds, duplicate touches, early goal, hazard, and independent player scores")
+assert(aHumanoid.WalkSpeed == 32)
+advance(12)
+assert(aHumanoid.WalkSpeed == 16)
+print("Passed two rounds, speed boost expiry, duplicate touches, hazard, and independent player scores")

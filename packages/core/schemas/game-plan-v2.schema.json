@@ -68,6 +68,16 @@
               },
               {
                 "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "amount", "duration_seconds"],
+                "properties": {
+                  "trigger_role": { "enum": ["collectible", "prop"] },
+                  "action": { "const": "speed_boost" },
+                  "amount": { "type": "integer", "minimum": 1, "maximum": 16 },
+                  "duration_seconds": { "type": "integer", "minimum": 1, "maximum": 30 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
                 "required": ["trigger_role", "action", "amount"],
                 "properties": {
                   "trigger_role": { "const": "hazard" },
@@ -97,11 +107,13 @@
           "allOf": [
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "speed_boost" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "enum": ["damage", "eliminate"] } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "speed_boost" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
             { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "award_win" } } }, "minContains": 0, "maxContains": 1 }

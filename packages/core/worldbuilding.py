@@ -38,6 +38,7 @@ MAX_SCENE_OBJECTS = 512
 MAX_SCENE_LIGHTS = 16
 MAX_SCENE_CHARACTERS = 8
 CHARACTER_OUTPUT_OBJECTS = 17
+CHARACTER_SILHOUETTES = frozenset({"balanced", "heroic", "slender", "round"})
 MAX_RENDERED_OBJECTS = (
     MAX_SCENE_OBJECTS + MAX_SCENE_LIGHTS + MAX_SCENE_CHARACTERS * CHARACTER_OUTPUT_OBJECTS
 )
@@ -249,12 +250,13 @@ class SceneLight:
 
 @dataclass(frozen=True, slots=True)
 class SceneCharacter:
-    """Bounded generic humanoid blockout and motion preset for Blender."""
+    """Bounded humanoid blockout, silhouette preset, and motion for Blender."""
 
     name: str
     motion: str
     location: tuple[float, float, float]
     scale: tuple[float, float, float]
+    silhouette: str = "balanced"
 
 
 @dataclass(frozen=True, slots=True)
@@ -454,9 +456,11 @@ For buildings, assign semantic roles to distinguish exterior massing, entries,
 courtyards, interiors, roofs, openings, and furnishings; include separate
 playable exterior and interior spatial cues when both are requested.
 Use a `characters` entry only when a humanoid NPC blockout is requested; it
-creates a generic rigid-weighted skeleton and a fixed WALK, RUN, JUMP, or IDLE
-motion preset, not a production avatar. This is still a blockout: do not claim UVs, textures, or
-production topology unless they are explicitly represented."""
+creates a generic rigid-weighted skeleton, an optional `silhouette` preset
+(`balanced`, `heroic`, `slender`, or `round`), and a fixed WALK, RUN, JUMP, or
+IDLE motion preset. Silhouette changes bounded body-part proportions without
+changing the generic rig. This is not a production avatar: do not claim UVs,
+textures, or production topology unless they are explicitly represented."""
 
 
 class WorldDesignAgent:
@@ -683,6 +687,56 @@ def _required_scene_roles(brief: str) -> set[str]:
     """Map requested routes and building features to required semantic roles."""
     roles: set[str] = set()
     terms_by_role = {
+        "terrain": (r"terrains?", r"ground", r"grounds", r"terreno", r"suelo"),
+        "water": (
+            r"water",
+            r"rivers?",
+            r"streams?",
+            r"ponds?",
+            r"lakes?",
+            r"waterfalls?",
+            r"agua",
+            r"r[ií]os?",
+            r"arroyos?",
+            r"lagunas?",
+            r"cascadas?",
+        ),
+        "vegetation": (
+            r"vegetation",
+            r"foliage",
+            r"plants?",
+            r"trees?",
+            r"forests?",
+            r"reeds?",
+            r"vegetaci[oó]n",
+            r"plantas?",
+            r"[aá]rbol(?:es)?",
+            r"bosques?",
+            r"juncos?",
+        ),
+        "rock": (
+            r"rocks?",
+            r"basalt",
+            r"stones?",
+            r"boulders?",
+            r"cliffs?",
+            r"rocas?",
+            r"basalto",
+            r"piedras?",
+            r"peñascos?",
+            r"acantilados?",
+        ),
+        "landmark": (
+            r"landmarks?",
+            r"lookouts?",
+            r"towers?",
+            r"summits?",
+            r"monuments?",
+            r"hitos?",
+            r"mirador(?:es)?",
+            r"torres?",
+            r"cumbres?",
+        ),
         "path": (
             r"routes?",
             r"trails?",
@@ -703,6 +757,7 @@ def _required_scene_roles(brief: str) -> set[str]:
             r"entradas?",
             r"accesos?",
         ),
+        "opening": (r"openings?", r"apertures?", r"aberturas?", r"huecos?"),
         "courtyard": (r"courtyards?", r"patios?"),
         "interior": (
             r"interiors?",
@@ -932,7 +987,12 @@ def _parse_light(payload: object) -> SceneLight:
 
 
 def _parse_character(payload: object) -> SceneCharacter:
-    if not isinstance(payload, dict) or set(payload) != {"name", "motion", "location", "scale"}:
+    required = {"name", "motion", "location", "scale"}
+    if (
+        not isinstance(payload, dict)
+        or not required <= set(payload)
+        or set(payload) - required - {"silhouette"}
+    ):
         raise WorldbuildingError("scene character has unexpected or missing fields")
     name = payload["name"]
     motion = payload["motion"]
@@ -940,11 +1000,15 @@ def _parse_character(payload: object) -> SceneCharacter:
         raise WorldbuildingError("scene character name is invalid")
     if not isinstance(motion, str) or motion not in {"WALK", "RUN", "JUMP", "IDLE"}:
         raise WorldbuildingError("scene character motion must be WALK, RUN, JUMP, or IDLE")
+    silhouette = payload.get("silhouette", "balanced")
+    if not isinstance(silhouette, str) or silhouette not in CHARACTER_SILHOUETTES:
+        raise WorldbuildingError("scene character silhouette is unsupported")
     return SceneCharacter(
         name=name,
         motion=motion,
         location=_vector(payload["location"], "character location", -10_000, 10_000),
         scale=_vector(payload["scale"], "character scale", 0.25, 4),
+        silhouette=silhouette,
     )
 
 
@@ -954,6 +1018,7 @@ def _character_mapping(character: SceneCharacter) -> dict[str, Any]:
         "motion": character.motion,
         "location": list(character.location),
         "scale": list(character.scale),
+        "silhouette": character.silhouette,
     }
 
 

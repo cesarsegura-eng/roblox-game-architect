@@ -16,7 +16,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from core.game_planning import GamePlanningError
 from core.gameplay_templates import GAMEPLAY_MODES, GameplayTemplateError, validate_gameplay_mode
@@ -25,6 +25,7 @@ from core.worldbuilding import SceneRecipe, WorldbuildingError
 
 from . import plan_review
 from .assets import (
+    MAX_GLB_BYTES,
     AssetUploadLedger,
     OpenCloudModelAssetUploader,
     RobloxAssetError,
@@ -50,6 +51,7 @@ BUILD_TOOL_NAME = "rga_build_place"
 DOWNLOAD_TOOL_NAME = "rga_build_place_download"
 MAX_REQUEST_BYTES = 28_000_000
 MAX_RESPONSE_BYTES = 11_000_000
+MAX_GLB_BASE64_LENGTH = 4 * ((MAX_GLB_BYTES + 2) // 3)
 MAX_LEDGER_ENTRIES = 10_000
 _TOKEN = re.compile(r"[A-Za-z0-9._~+/-]+=*\Z", re.ASCII)
 _PROTOCOL_VERSION = "2025-11-25"
@@ -107,6 +109,21 @@ def _tool_definition() -> dict[str, Any]:
                 "path_feature_count": {"type": "integer"},
                 "navigation_waypoint_count": {"type": "integer"},
                 "navigation_connected": {"type": "boolean"},
+                "navigation_failed_leg": {
+                    "anyOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "leg_index": {"type": "integer", "minimum": 0, "maximum": 511},
+                                "from": {"type": "string", "maxLength": 64},
+                                "to": {"type": "string", "maxLength": 64},
+                            },
+                            "required": ["leg_index", "from", "to"],
+                        },
+                    ]
+                },
             },
             "required": [
                 "request_id",
@@ -117,6 +134,7 @@ def _tool_definition() -> dict[str, Any]:
                 "path_feature_count",
                 "navigation_waypoint_count",
                 "navigation_connected",
+                "navigation_failed_leg",
             ],
             "additionalProperties": False,
         },
@@ -130,13 +148,17 @@ def _build_tool_definition() -> dict[str, Any]:
         "description": (
             "Build a Roblox .rbxlx from a bounded RGA scene recipe. Optional gameplay uses a "
             "fixed template or a closed data-only rule list; caller supplied Luau is never "
-            "accepted. "
-            "The result is a downloadable artifact; this tool never publishes to Roblox."
+            "accepted. In Obby mode, path objects define checkpoint order and consecutive "
+            "segments must connect in that order. "
+            "The result is a downloadable artifact; this tool never publishes to Roblox. "
+            "When a Game Plan is supplied, its mode, rules, and scene requirements are checked "
+            "against the exact recipe in this build request."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "recipe": {"type": "object"},
+                "plan": {"type": "object"},
                 "request_id": {"type": "string", "format": "uuid"},
                 "gameplay_mode": {"enum": sorted(GAMEPLAY_MODES)},
                 "gameplay_rules": {
@@ -162,6 +184,26 @@ def _build_tool_definition() -> dict[str, Any]:
                                     "amount": {"type": "integer", "minimum": 1, "maximum": 1000},
                                 },
                                 "required": ["trigger_role", "action", "amount"],
+                                "additionalProperties": False,
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "trigger_role": {"enum": ["collectible", "prop"]},
+                                    "action": {"const": "speed_boost"},
+                                    "amount": {"type": "integer", "minimum": 1, "maximum": 16},
+                                    "duration_seconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 30,
+                                    },
+                                },
+                                "required": [
+                                    "trigger_role",
+                                    "action",
+                                    "amount",
+                                    "duration_seconds",
+                                ],
                                 "additionalProperties": False,
                             },
                             {
@@ -274,7 +316,10 @@ def _asset_upload_tool_definition() -> dict[str, Any]:
         "name": ASSET_UPLOAD_TOOL_NAME,
         "description": (
             "Create a new Roblox Model asset from an approved GLB. Requires a short-lived "
-            "server-signed operator approval bound to the exact artifact SHA-256."
+            "server-signed operator approval bound to the exact artifact SHA-256. Each mesh "
+            "primitive must fit Roblox's 20,000-triangle limit; before upload the host checks "
+            "embedded geometry, skinning, animation, texture dimensions, and material-to-image "
+            "references."
         ),
         "inputSchema": {
             "type": "object",
@@ -286,7 +331,7 @@ def _asset_upload_tool_definition() -> dict[str, Any]:
                 "approval_expires_at": {"type": "integer"},
                 "display_name": {"type": "string", "maxLength": 80},
                 "description": {"type": "string", "maxLength": 1000},
-                "glb_base64": {"type": "string", "maxLength": 26570000},
+                "glb_base64": {"type": "string", "maxLength": MAX_GLB_BASE64_LENGTH},
             },
             "required": [
                 "request_id",
@@ -300,6 +345,7 @@ def _asset_upload_tool_definition() -> dict[str, Any]:
             ],
             "additionalProperties": False,
         },
+        "_meta": {"anthropic/requiresUserInteraction": True},
     }
 
 
@@ -310,7 +356,9 @@ def _prepare_blender_upload_tool_definition() -> dict[str, Any]:
             "Fetch and inspect metadata for one UUID-addressed GLB from the fixed, configured "
             "Blender MCP host. This read-only step creates no Roblox asset. It returns "
             "a short-lived digest-bound review receipt for a separate user-confirmed upload call. "
-            "The source GLB is limited to 19 MiB and never passes through the agent."
+            "The source GLB is limited to 19 MiB, triangle budgets, geometry, skinning, "
+            "animation, texture dimensions, and material-to-image references are checked, and "
+            "bytes never pass through the agent."
         ),
         "inputSchema": {
             "type": "object",
@@ -354,6 +402,7 @@ def _commit_blender_upload_tool_definition() -> dict[str, Any]:
             "destructiveHint": True,
             "openWorldHint": True,
         },
+        "_meta": {"anthropic/requiresUserInteraction": True},
     }
 
 
@@ -391,6 +440,7 @@ def _place_publish_tool_definition() -> dict[str, Any]:
             "destructiveHint": True,
             "openWorldHint": True,
         },
+        "_meta": {"anthropic/requiresUserInteraction": True},
     }
 
 
@@ -448,7 +498,66 @@ def _commit_direct_publish_tool_definition() -> dict[str, Any]:
             "destructiveHint": True,
             "openWorldHint": True,
         },
+        "_meta": {"anthropic/requiresUserInteraction": True},
     }
+
+
+class _ToolServerConfig(Protocol):
+    validation_enabled: bool
+    place_builder: object | None
+    downloads: object | None
+    asset_uploader: object | None
+    blender_artifact_source: object | None
+    model_upload_ledger: object | None
+    place_publisher: object | None
+
+
+def _tool_definitions_for_server(server: _ToolServerConfig) -> list[dict[str, Any]]:
+    tools = [_tool_definition()] if server.validation_enabled else []
+    tools.append(plan_review.tool_definition())
+    if server.place_builder is not None:
+        tools.append(_build_tool_definition())
+        if server.downloads is not None:
+            tools.append(_download_tool_definition())
+    if server.asset_uploader is not None:
+        tools.append(_asset_upload_tool_definition())
+        tools.append(
+            {
+                "name": ASSET_STATUS_TOOL_NAME,
+                "description": (
+                    "Check the receipt of a completed RGA Model upload. While moderation "
+                    "is pending, read its current decision from Roblox. Supply the "
+                    "original upload request_id. The tool never submits an upload."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"request_id": {"type": "string", "format": "uuid"}},
+                    "required": ["request_id"],
+                    "additionalProperties": False,
+                },
+                "annotations": {"readOnlyHint": True, "destructiveHint": False},
+            }
+        )
+    if (
+        server.blender_artifact_source is not None
+        and server.model_upload_ledger is not None
+        and server.asset_uploader is not None
+    ):
+        tools.extend(
+            [
+                _prepare_blender_upload_tool_definition(),
+                _commit_blender_upload_tool_definition(),
+            ]
+        )
+    if server.place_publisher is not None:
+        tools.extend(
+            [
+                _place_publish_tool_definition(),
+                _prepare_direct_publish_tool_definition(),
+                _commit_direct_publish_tool_definition(),
+            ]
+        )
+    return tools
 
 
 class ValidationLedger:
@@ -537,6 +646,9 @@ class ValidationLedger:
 class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
     server_version = "rga-roblox-mcp"
     sys_version = ""
+    # A client that opens a connection and then stalls must not hold a thread
+    # indefinitely; tool calls run with no socket read in progress.
+    timeout = 30
 
     def do_GET(self) -> None:
         if not self._origin_allowed():
@@ -593,7 +705,7 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
             self._plain(413 if length > MAX_REQUEST_BYTES else 400, "Request size is invalid.")
             return
         try:
-            message = _strict_json(self.rfile.read(length))
+            message = _strict_json(self._read_body(length))
         except (ValueError, UnicodeError, RecursionError):
             self._plain(400, "Request must be strict JSON.")
             return
@@ -626,10 +738,11 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
                 {
                     "protocolVersion": _PROTOCOL_VERSION,
                     "capabilities": {"tools": {}, "resources": {}},
-                    "serverInfo": {"name": "rga-roblox-mcp", "version": "0.2.0"},
+                    "serverInfo": {"name": "rga-roblox-mcp", "version": "0.4.0"},
                     "instructions": (
                         "Start with resources/read at rga://skills/roblox-game-architect. "
-                        "Use resources/list for domain guides and input schemas. "
+                        "Use resources/list for domain guides, input schemas, and "
+                        "rga://examples/ recipes, plans, and gameplay rules. "
                         "Build places only from bounded validated Scene Recipes with "
                         "rga_build_place. The default is script-free; caller-provided Luau is "
                         "never accepted. Use rga_validate_map only for the configured disposable "
@@ -673,50 +786,7 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
             else:
                 self._rpc_result(message["id"], {"contents": [resource]})
         elif method == "tools/list":
-            tools = [_tool_definition()] if self.server.validation_enabled else []  # type: ignore[attr-defined]
-            tools.append(plan_review.tool_definition())
-            if self.server.place_builder is not None:  # type: ignore[attr-defined]
-                tools.append(_build_tool_definition())
-                if self.server.downloads is not None:  # type: ignore[attr-defined]
-                    tools.append(_download_tool_definition())
-            if self.server.asset_uploader is not None:  # type: ignore[attr-defined]
-                tools.append(_asset_upload_tool_definition())
-                tools.append(
-                    {
-                        "name": ASSET_STATUS_TOOL_NAME,
-                        "description": (
-                            "Check the receipt of a completed RGA Model upload. While moderation "
-                            "is pending, read its current decision from Roblox. Supply the "
-                            "original upload request_id. The tool never submits an upload."
-                        ),
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {"request_id": {"type": "string", "format": "uuid"}},
-                            "required": ["request_id"],
-                            "additionalProperties": False,
-                        },
-                        "annotations": {"readOnlyHint": True, "destructiveHint": False},
-                    }
-                )
-            if (
-                self.server.blender_artifact_source is not None  # type: ignore[attr-defined]
-                and self.server.model_upload_ledger is not None  # type: ignore[attr-defined]
-                and self.server.asset_uploader is not None  # type: ignore[attr-defined]
-            ):
-                tools.extend(
-                    [
-                        _prepare_blender_upload_tool_definition(),
-                        _commit_blender_upload_tool_definition(),
-                    ]
-                )
-            if self.server.place_publisher is not None:  # type: ignore[attr-defined]
-                tools.extend(
-                    [
-                        _place_publish_tool_definition(),
-                        _prepare_direct_publish_tool_definition(),
-                        _commit_direct_publish_tool_definition(),
-                    ]
-                )
+            tools = _tool_definitions_for_server(self.server)
             self._rpc_result(message["id"], {"tools": tools})
         elif method == "tools/call":
             self._call_tool(message["id"], params)
@@ -772,6 +842,7 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
             if tool_name == TOOL_NAME
             else {
                 "recipe",
+                "plan",
                 "request_id",
                 "gameplay_mode",
                 "gameplay_rules",
@@ -796,20 +867,23 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
                 if tool_name == DOWNLOAD_TOOL_NAME and downloads is None:
                     self._rpc_error(call_id, -32602, "Browser downloads are not configured")
                     return
-                if self.server.place_builder is None:  # type: ignore[attr-defined]
-                    raise RobloxPlaceBuildError("Rojo is unavailable")
                 request_id = str(uuid.UUID(args["request_id"]))
                 if request_id != args["request_id"].lower():
                     raise ValueError("request ID must use canonical UUID syntax")
                 gameplay_mode = args.get("gameplay_mode", "blockout")
                 gameplay_rules = args.get("gameplay_rules")
                 try:
-                    validate_gameplay_mode(
-                        gameplay_mode, SceneRecipe.from_mapping(args["recipe"]), gameplay_rules
-                    )
-                except (WorldbuildingError, GameplayTemplateError) as exc:
+                    recipe = SceneRecipe.from_mapping(args["recipe"])
+                    validate_gameplay_mode(gameplay_mode, recipe, gameplay_rules)
+                    if "plan" in args:
+                        plan_review.validate_build_request(
+                            args["plan"], args["recipe"], gameplay_mode, gameplay_rules
+                        )
+                except ValueError as exc:
                     self._review_error(call_id, exc)
                     return
+                if self.server.place_builder is None:  # type: ignore[attr-defined]
+                    raise RobloxPlaceBuildError("Rojo is unavailable")
                 imported_model = None
                 imported_meshpart_count = 0
                 model_asset_id = args.get("model_asset_id")
@@ -1112,7 +1186,7 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
             or not isinstance(name, str)
             or not isinstance(description, str)
             or not isinstance(encoded, str)
-            or len(encoded) > 26_570_000
+            or len(encoded) > MAX_GLB_BASE64_LENGTH
         ):
             self._rpc_error(call_id, -32602, "Invalid tool arguments")
             return
@@ -1308,6 +1382,18 @@ class RobloxMCPHandler(http.server.BaseHTTPRequestHandler):
                 "structuredContent": receipt.to_mapping(),
             },
         )
+
+    def _read_body(self, length: int) -> bytes:
+        """Read the declared body, or give up on a client that stalls.
+
+        The socket timeout above turns a stalled read into an error; it is reported as
+        a bad body so the existing rejection path answers it, and the connection ends.
+        """
+        try:
+            return self.rfile.read(length)
+        except OSError as exc:
+            self.close_connection = True
+            raise ValueError("the request body was not received") from exc
 
     def _authorized(self) -> bool:
         scheme, _, token = (self.headers.get("Authorization") or "").partition(" ")

@@ -124,7 +124,12 @@ def _validate_recipe(data: object) -> None:
 
 
 def _validate_character(character: object) -> None:
-    if not isinstance(character, dict) or set(character) != {"name", "motion", "location", "scale"}:
+    required = {"name", "motion", "location", "scale"}
+    if (
+        not isinstance(character, dict)
+        or not required <= set(character)
+        or set(character) - required - {"silhouette"}
+    ):
         raise RecipeError("character has unexpected or missing fields")
     _require_name(character["name"], "character name")
     if not isinstance(character["motion"], str) or character["motion"] not in {
@@ -134,6 +139,14 @@ def _validate_character(character: object) -> None:
         "IDLE",
     }:
         raise RecipeError("character motion must be WALK, RUN, JUMP, or IDLE")
+    silhouette = character.get("silhouette", "balanced")
+    if not isinstance(silhouette, str) or silhouette not in {
+        "balanced",
+        "heroic",
+        "slender",
+        "round",
+    }:
+        raise RecipeError("character silhouette must be balanced, heroic, slender, or round")
     _vector(character["location"], "character location", -10_000, 10_000)
     _vector(character["scale"], "character scale", 0.25, 4)
 

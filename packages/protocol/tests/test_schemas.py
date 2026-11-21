@@ -5,8 +5,9 @@ What these tests establish, and what they do not:
 * The Python side is verified: the schemas are valid Draft 2020-12, every one stays inside the
   closed subset a hand-written Luau validator could implement, and every vector in
   examples/v1/ gives the declared result under the reference stages.
-* Luau conformance is SPECIFIED, NOT VERIFIED. No Luau validator or parser exists yet (ADR-0009).
-  The vectors are the conformance suite it must pass when it does.
+* The integrated Luau strict parser and bounded envelope/payload schema validator pass
+  their shared parse and valid/invalid schema vectors under Lute. Full semantic parity
+  and the installed Roblox Studio runtime remain unverified (ADR-0009).
 """
 
 import json

@@ -188,15 +188,19 @@ implementation must satisfy, not as a description of end-to-end behaviour.
 user asks their existing agent for a Roblox game
   → portable skills guide planning, biomes, architecture, maps, characters
   → agent calls remote Blender MCP to build reviewed scene/character assets
-  → agent calls remote Roblox MCP to build a place artifact or validate a map
+  → agent uses Roblox Studio's already configured native MCP for direct work
+    in the user's place when available and supported by its tool contract
+  → agent may call remote Roblox MCP for separate artifact builds and fixed checks
   → agent presents outputs and validation evidence for human review
   → optional gated asset creation / disposable-place validation after approval
 ```
 
 This agent-first flow is the intended product and does not require local
-authoring applications. Generated Luau execution, broad gameplay playtests, and
-production publication are not yet complete. Persistent asset creation and
-test-place publication remain separately gated; production publishing is off.
+authoring applications or an RGA Studio plugin. Roblox Studio's native MCP
+remains user-owned and is never recreated or routed through an RGA service.
+Generated Luau execution, broad gameplay playtests, and production publication
+are not yet complete. Persistent asset creation and test-place publication
+remain separately gated; production publishing is off.
 The optional local plugin/API path is described in its own protocol and is not
 the primary product flow.
 

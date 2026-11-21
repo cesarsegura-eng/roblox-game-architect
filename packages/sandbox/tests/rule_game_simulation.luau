@@ -17,6 +17,7 @@ local function folder(parts)
         IsA = function(_, name) return name == "Folder" end }
 end
 local pickupA, pickupB, hazard, finish = part(), part(), part(), part()
+local delayedTasks = {}
 local folders = {
     Collectible = folder({pickupA, pickupB}), Hazard = folder({hazard}), Landmark = folder({finish}),
 }
@@ -30,12 +31,24 @@ function map:WaitForChild(name)
     assert(name == "RGA Gameplay Rules")
     return { Value = "" }
 end
-local player = {PlayerGui = {}}
+local player = {PlayerGui = {}, Parent = true}
 function player:FindFirstChild(name) return self[name] end
 function player:WaitForChild(name) return self[name] end
-local task = {spawn = function(fn, ...) fn(...) end}
+local task = {
+    spawn = function(fn, ...) fn(...) end,
+    delay = function(seconds, fn)
+        assert(seconds == 1, "unexpected rule-game round cooldown")
+        table.insert(delayedTasks, fn)
+    end,
+}
 local UDim2 = {fromScale = function(x, y) return {x, y} end,
     new = function(...) return {...} end}
+local Enum = {
+    AutomaticSize = {Y = "Y"},
+    TextXAlignment = {Left = "Left"},
+    TextYAlignment = {Center = "Center"},
+    ZIndexBehavior = {Sibling = "Sibling"},
+}
 local Color3 = {fromRGB = function(r, g, b) return {r, g, b} end}
 local humanoid = { Health = 100, MaxHealth = 100 }
 function humanoid:TakeDamage(amount) self.Health -= amount end
@@ -64,9 +77,10 @@ local function runTemplate()
 end
 
 local score = { trigger_role = "collectible", action = "award_points", amount = 3 }
+local landmarkScore = { trigger_role = "landmark", action = "award_points", amount = 9 }
 local damage = { trigger_role = "hazard", action = "damage", amount = 85 }
 local eliminate = { trigger_role = "hazard", action = "eliminate" }
-local win = { trigger_role = "landmark", action = "award_win", minimum_points = 6 }
+local win = { trigger_role = "landmark", action = "award_win", minimum_points = 9 }
 for _, invalid in {
     {score, {trigger_role = "landmark", action = "award_win", minimum_points = 7}},
     {score, damage, eliminate, win},
@@ -77,19 +91,35 @@ for _, invalid in {
     assert(not pcall(runTemplate), "Invalid rule set accepted")
     assert(connections == 0 and player.leaderstats == nil, "Rejected game left active handlers")
 end
-rules = {win, score, damage}
+rules = {win, score, landmarkScore, damage}
 runTemplate()
+local hud = player.PlayerGui["RGA Objective"]
+assert(hud.IgnoreGuiInset == false and hud.DisplayOrder == 10)
+assert(hud.Progress.AutomaticSize == "Y" and hud.Progress.TextWrapped)
+assert(hud.Progress.TextScaled == false and hud.Progress.Size[1] == 0.92)
 hazard.Touched.callback(hit)
 assert(humanoid.Health == 15)
 hazard.Touched.callback(hit)
 assert(humanoid.Health == 15)
 pickupA.Touched.callback(hit)
 pickupA.Touched.callback(hit)
-finish.Touched.callback(hit)
 assert(player.leaderstats.Points.Value == 3 and player.leaderstats.Wins.Value == 0)
 pickupB.Touched.callback(hit)
+assert(player.leaderstats.Points.Value == 6 and player.leaderstats.Wins.Value == 0)
 finish.Touched.callback(hit)
 assert(player.leaderstats.Points.Value == 0 and player.leaderstats.Wins.Value == 1)
+finish.Touched.callback(hit)
+assert(player.leaderstats.Points.Value == 0 and player.leaderstats.Wins.Value == 1,
+    "duplicate landmark contact awarded another win during the round reset")
+local releaseRound = table.remove(delayedTasks, 1)
+assert(releaseRound, "winning did not schedule the round reset")
+releaseRound()
+finish.Touched.callback(hit)
+assert(player.leaderstats.Points.Value == 0 and player.leaderstats.Wins.Value == 2,
+    "new round did not re-enable the landmark")
+local releaseNextRound = table.remove(delayedTasks, 1)
+assert(releaseNextRound, "second win did not schedule the round reset")
+releaseNextRound()
 hazard.Touched.callback(hit)
 assert(humanoid.Health == 1)
 pickupA.Touched.callback(hit)

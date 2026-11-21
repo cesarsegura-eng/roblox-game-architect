@@ -22,6 +22,8 @@ _PLAN_SCHEMA_PATH = Path(__file__).parent / "schemas" / "game-plan-v2.schema.jso
 _MAX_PLAN_BYTES = 65_536
 _DEFAULT_SKILLS = (
     "game-design-planning",
+    "roblox-gameplay-engineering",
+    "roblox-ui-ux",
     "world-environments",
     "roblox-studio-map-blockouts",
 )
@@ -57,6 +59,7 @@ class GameplayRule:
     action: str
     amount: int | None = None
     minimum_points: int | None = None
+    duration_seconds: int | None = None
 
     def to_mapping(self) -> dict[str, Any]:
         result: dict[str, Any] = {"trigger_role": self.trigger_role, "action": self.action}
@@ -64,6 +67,8 @@ class GameplayRule:
             result["amount"] = self.amount
         if self.minimum_points is not None:
             result["minimum_points"] = self.minimum_points
+        if self.duration_seconds is not None:
+            result["duration_seconds"] = self.duration_seconds
         return result
 
 
@@ -233,8 +238,12 @@ trigger_role and exactly one action: award_points requires integer amount
 1-1000; heal requires integer amount 1-100; damage requires hazard and integer
 amount 1-100; eliminate requires hazard and no extra field; award_win requires
 landmark and integer minimum_points 1-1000, plus at least one award_points rule.
+speed_boost requires a collectible or prop, integer amount 1-16 and integer
+duration_seconds 1-30.
 Choose either damage or eliminate for hazards. Each scoring object pays once per
-round. Specify enough scoring objects in the world brief to reach the win threshold.
+round. A win pauses nonlethal touch effects for one second to suppress duplicate
+touches during the reset; lethal hazards remain active. Specify enough scoring
+objects in the world brief to reach the win threshold.
 Use an empty array for every other mode. Never add code, free-form parameters,
 or unsupported action names. List
 which planned systems are included in this first slice and which are deferred;
@@ -431,6 +440,25 @@ def _parse_gameplay_rules(value: object, mode: str) -> tuple[GameplayRule, ...]:
             if type(amount) is not int or not 1 <= amount <= maximum:
                 raise GamePlanningError(f"{action} amount must be an integer from 1 to {maximum}")
             rule = GameplayRule(role, action, amount=amount)
+        elif action == "speed_boost":
+            if role not in {"collectible", "prop"} or set(item) != {
+                "trigger_role",
+                "action",
+                "amount",
+                "duration_seconds",
+            }:
+                raise GamePlanningError(
+                    "speed_boost requires a collectible or prop, amount and duration_seconds"
+                )
+            amount = item["amount"]
+            duration = item["duration_seconds"]
+            if type(amount) is not int or not 1 <= amount <= 16:
+                raise GamePlanningError("speed_boost amount must be an integer from 1 to 16")
+            if type(duration) is not int or not 1 <= duration <= 30:
+                raise GamePlanningError(
+                    "speed_boost duration_seconds must be an integer from 1 to 30"
+                )
+            rule = GameplayRule(role, action, amount=amount, duration_seconds=duration)
         elif action == "eliminate":
             if role != "hazard" or set(item) != {"trigger_role", "action"}:
                 raise GamePlanningError("eliminate requires a hazard role and no parameters")

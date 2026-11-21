@@ -265,12 +265,12 @@
       ]
     },
     {
-      "name": "Canopy Bridge",
-      "role": "path",
+      "name": "Ridge connector",
       "primitive": "cube",
+      "role": "path",
       "location": [
         0,
-        29,
+        14,
         0.1
       ],
       "rotation_deg": [
@@ -280,18 +280,18 @@
       ],
       "scale": [
         2.8,
-        16,
+        14,
         0.18
       ]
     },
     {
-      "name": "Summit Walkway",
+      "name": "Canopy Bridge",
       "role": "path",
       "primitive": "cube",
       "location": [
         0,
-        59,
-        0.8
+        29,
+        0.1
       ],
       "rotation_deg": [
         0,
@@ -325,26 +325,6 @@
       ]
     },
     {
-      "name": "Ridge connector",
-      "primitive": "cube",
-      "role": "path",
-      "location": [
-        0,
-        14,
-        0.1
-      ],
-      "rotation_deg": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        2.8,
-        14,
-        0.18
-      ]
-    },
-    {
       "name": "Summit connector",
       "primitive": "cube",
       "role": "path",
@@ -361,6 +341,26 @@
       "scale": [
         2.8,
         14,
+        0.18
+      ]
+    },
+    {
+      "name": "Summit Walkway",
+      "role": "path",
+      "primitive": "cube",
+      "location": [
+        0,
+        59,
+        0.8
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2.8,
+        16,
         0.18
       ]
     },

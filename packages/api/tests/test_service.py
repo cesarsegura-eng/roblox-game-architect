@@ -637,6 +637,47 @@ def test_failed_generation_audit_omits_exception_and_prompt_details(service):
     assert "error" not in events[-1]
 
 
+def test_roblox_navigation_failure_audit_validates_and_records_route_leg(service):
+    details = {
+        "request_id": "12345678-1234-4234-8234-123456789abc",
+        "place_version": "7",
+        "task_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "recipe_name": "Test Route",
+        "object_count": 4,
+        "path_feature_count": 3,
+        "navigation_waypoint_count": 1,
+        "navigation_connected": False,
+        "validation_status": "navigation_failed",
+        "remote_host": "roblox-mcp.example.test",
+        "navigation_failed_leg": {"leg_index": 1, "from": "Path B", "to": "Path C"},
+    }
+
+    service.record_roblox_map_validation(TOKEN, **details)
+    events, _total = service.operator_events(TOKEN)
+    assert events[-1]["kind"] == "roblox_map_validation_completed"
+    assert events[-1]["navigation_failed_leg"] == details["navigation_failed_leg"]
+
+    with pytest.raises(ValueError, match="audit details"):
+        service.record_roblox_map_validation(
+            TOKEN,
+            **{**details, "navigation_failed_leg": ["leg_index", "from", "to"]},
+        )
+    for invalid_leg, waypoint_count in (
+        ({"leg_index": 2, "from": "Path C", "to": "Path D"}, 2),
+        ({"leg_index": 0, "from": "Path A", "to": "Path B"}, 2),
+        ({"leg_index": 1, "from": "Path B", "to": "Path C"}, 0),
+    ):
+        with pytest.raises(ValueError, match="audit details"):
+            service.record_roblox_map_validation(
+                TOKEN,
+                **{
+                    **details,
+                    "navigation_failed_leg": invalid_leg,
+                    "navigation_waypoint_count": waypoint_count,
+                },
+            )
+
+
 def test_reviewed_place_publish_receipt_is_audited_once_without_file_contents(service):
     details = {
         "request_id": "12345678-1234-4234-8234-123456789abc",

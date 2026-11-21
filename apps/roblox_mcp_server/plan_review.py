@@ -51,3 +51,19 @@ def review(arguments: dict[str, Any]) -> dict[str, Any]:
         "build_settings": settings,
         "required_scene_roles": sorted(roles),
     }
+
+
+def validate_build_request(
+    plan: object,
+    recipe: object,
+    gameplay_mode: object,
+    gameplay_rules: object,
+) -> None:
+    """Bind one built artifact request to the reviewed plan and scene recipe."""
+    checked = review({"plan": plan, "recipe": recipe})
+    expected = checked["build_settings"]
+    supplied: dict[str, Any] = {"gameplay_mode": gameplay_mode}
+    if gameplay_rules is not None:
+        supplied["gameplay_rules"] = gameplay_rules
+    if supplied != expected:
+        raise ValueError("build settings do not match the reviewed Game Plan playable slice")

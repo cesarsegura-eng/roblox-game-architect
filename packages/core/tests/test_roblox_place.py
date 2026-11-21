@@ -101,6 +101,17 @@ def test_rainforest_treasure_hunt_example_compiles_with_spawn_and_nonblocking_pi
     assert "RGA Treasure Hunt" in project["tree"]["ServerScriptService"]
 
 
+def test_rainforest_obby_example_orders_checkpoints_along_the_route():
+    root = Path(__file__).resolve().parents[3]
+    example = json.loads(
+        (root / "examples/worlds/rainforest-checkpoint-obby/scene-recipe.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    validate_gameplay_mode("obby", SceneRecipe.from_mapping(example))
+
+
 def test_scene_recipe_compiles_to_closed_rojo_tree_with_y_up_transforms():
     project, summary = scene_recipe_to_rojo_project(_recipe())
     map_node = project["tree"]["Workspace"]["Roblox Game Architect"]["Mangrove Shore"]
@@ -327,6 +338,26 @@ def test_obby_requires_two_connected_path_segments():
         validate_gameplay_mode("obby", SceneRecipe.from_mapping(recipe))
 
 
+def test_obby_rejects_connected_path_pieces_when_checkpoint_order_skips_a_segment():
+    recipe = _recipe()
+    recipe["objects"].extend(
+        [
+            {
+                "name": name,
+                "role": "path",
+                "primitive": "cube",
+                "location": [x, 0, 0],
+                "rotation_deg": [0, 0, 0],
+                "scale": [4, 1, 4],
+            }
+            for name, x in (("Start", 0), ("Finish", 16), ("Middle", 8))
+        ]
+    )
+
+    with pytest.raises(GameplayTemplateError, match="route order is disconnected"):
+        validate_gameplay_mode("obby", SceneRecipe.from_mapping(recipe))
+
+
 def test_hazard_role_serializes_as_touchable_hazard_folder_for_fixed_gameplay():
     recipe = _recipe()
     recipe["objects"].extend(
@@ -404,6 +435,12 @@ def test_rule_game_serializes_only_validated_data_and_trusted_interpreter():
     rules = [
         {"trigger_role": "collectible", "action": "award_points", "amount": 5},
         {"trigger_role": "collectible", "action": "heal", "amount": 10},
+        {
+            "trigger_role": "collectible",
+            "action": "speed_boost",
+            "amount": 8,
+            "duration_seconds": 12,
+        },
         {"trigger_role": "hazard", "action": "damage", "amount": 20},
         {"trigger_role": "landmark", "action": "award_win", "minimum_points": 5},
     ]
@@ -426,6 +463,15 @@ def test_rule_game_serializes_only_validated_data_and_trusted_interpreter():
     assert "Win threshold exceeds available points per round" in source
     assert 'action == "eliminate"' in source
     assert 'action == "award_win"' in source
+    assert 'action == "speed_boost"' in source
+    assert "task.delay(actions.speed_boost.duration_seconds" in source
+    assert "roundReadyByPlayer[player] = false" in source
+    assert "task.delay(1, function()" in source
+    assert "if actions.eliminate then" in source
+    assert "label.AutomaticSize = Enum.AutomaticSize.Y" in source
+    assert "label.Size = UDim2.new(0.92, 0, 0, 0)" in source
+    assert "gui.IgnoreGuiInset = false" in source
+    assert "label.TextScaled = false" in source
     assert 'assert(allowedField, "Unexpected gameplay rule field")' in source
     assert 'assert(fieldCount == expectedFieldCount, "Invalid gameplay rule fields")' in source
     assert "leaderstats.Wins.Value += 1" in source
@@ -452,6 +498,19 @@ def test_rule_game_serializes_only_validated_data_and_trusted_interpreter():
         ({"trigger_role": "prop", "action": "damage", "amount": 10}, "hazard"),
         ({"trigger_role": "hazard", "action": "award_win", "minimum_points": 2}, "landmark"),
         ({"trigger_role": "landmark", "action": "award_win", "minimum_points": True}, "integer"),
+        (
+            {
+                "trigger_role": "collectible",
+                "action": "speed_boost",
+                "amount": 17,
+                "duration_seconds": 5,
+            },
+            "amount",
+        ),
+        (
+            {"trigger_role": "hazard", "action": "speed_boost", "amount": 5, "duration_seconds": 5},
+            "collectible or prop",
+        ),
     ],
 )
 def test_rule_game_rejects_unknown_actions_and_executable_fields(rule, message):

@@ -53,6 +53,11 @@ def render() -> str:
     return json.dumps(references, ensure_ascii=True, indent=2) + "\n"
 
 
+def write_output(path: Path = OUTPUT) -> None:
+    """Write the generated reference file with stable UTF-8/LF bytes."""
+    path.write_bytes(render().encode("utf-8"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
@@ -64,7 +69,7 @@ def main() -> int:
                 "Packaged reference scenes have drifted; run this tool without --check"
             )
     else:
-        OUTPUT.write_text(expected, encoding="utf-8")
+        write_output()
     print("Reference scenes are synchronized.")
     return 0
 

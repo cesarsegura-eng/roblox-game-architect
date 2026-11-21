@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:roblox-game-architect:release-evidence-bundle-v1",
+  "title": "Roblox Game Architect Release Evidence Bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_title",
+    "readiness",
+    "verified_gate_count",
+    "pending_gate_ids",
+    "release_readiness_sha256",
+    "evidence",
+    "notice"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "plan_title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "readiness": { "const": "not_ready" },
+    "verified_gate_count": { "const": 0 },
+    "pending_gate_ids": {
+      "const": [
+        "release_scope",
+        "server_authority_and_abuse",
+        "persistence_and_recovery",
+        "commerce_and_policy",
+        "multiplayer_and_network",
+        "device_playability_and_performance",
+        "content_rights_and_safety",
+        "operations_and_rollback",
+        "human_release_approval"
+      ]
+    },
+    "release_readiness_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gate_id",
+          "source_path",
+          "archive_path",
+          "byte_length",
+          "media_type",
+          "sha256"
+        ],
+        "properties": {
+          "gate_id": {
+            "enum": [
+              "release_scope",
+              "server_authority_and_abuse",
+              "persistence_and_recovery",
+              "commerce_and_policy",
+              "multiplayer_and_network",
+              "device_playability_and_performance",
+              "content_rights_and_safety",
+              "operations_and_rollback",
+              "human_release_approval"
+            ]
+          },
+          "source_path": { "type": "string", "minLength": 1, "maxLength": 260 },
+          "archive_path": {
+            "type": "string",
+            "pattern": "^evidence/[a-z_]+/[0-9]{3}-[^/]{1,260}$"
+          },
+          "byte_length": { "type": "integer", "minimum": 0, "maximum": 16777216 },
+          "media_type": { "type": "string", "minLength": 1, "maxLength": 127 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "notice": {
+      "const": "Evidence inventory only. File contents and claims are unverified; owners must review each item. This bundle does not change any release-gate status."
+    }
+  }
+}

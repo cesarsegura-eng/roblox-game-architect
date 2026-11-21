@@ -1,8 +1,11 @@
 # Safety model
 
-Roblox Game Architect is designed to author and validate games through
-separately hosted MCP services. The user needs Roblox Studio, where the game is
-made, and no other program: not Blender, not a local server. This document defines what the
+Roblox Game Architect equips the user's existing agent with skills, remote
+Blender authoring, and a workflow that preserves the user's native Roblox
+Studio MCP connection. A separate RGA Roblox service can build artifacts and
+run its fixed checks but is not added to the Claude plugin. Remote artifact
+generation does not require Blender, Studio, or a local RGA server on the user's
+computer. This document defines what the
 agent is allowed to do, what stops it, and what always requires a human. It is
 the reference for
 [`SECURITY.md`](../SECURITY.md) and for the invariants in
@@ -30,7 +33,15 @@ plugin and operator panel support a local compatibility workflow. Persistent
 Roblox asset creation and test-place publication use separate digest-bound
 prepare/confirm operations. The RGA orchestration API and local operator panel
 are not required by the agent-first workflow. Model-authored gameplay and
-general playtesting remain unavailable.
+general playtesting remain unavailable in RGA's sandboxed services.
+
+The RGA execution restrictions govern RGA APIs and remote services. Roblox
+Studio's native MCP is a separate, privileged connection to the open place; it
+can expose script editing and Luau execution but is not an isolation boundary.
+When using it, verify the intended `studio_id` and place before edits, follow
+the user's request and the native tool's approvals, and use a disposable test
+copy for playtests when available. Native Studio operations are not covered by
+RGA's static code policy or remote harness; report their results separately.
 
 ## 1. Threat model
 
@@ -119,9 +130,9 @@ returns a bounded result. The API/UI and deployment exist, but no isolated
 universe, scoped key, persistence proof, or live Roblox result is configured.
 Do not rely on this integration until the acceptance evidence in
 [`ADR-0015`](architecture/adr/0015-disposable-world-validation.md) is recorded.
-Generated Luau and `playtest.request` execution remain blocked. Studio MCP and
-Open Cloud expose broad engine access and are not treated as isolation
-boundaries by themselves.
+RGA-generated Luau and `playtest.request` execution remain blocked in this
+service path. Studio MCP and Open Cloud expose broad engine access and are not
+treated as isolation boundaries by themselves.
 
 ## 3. Autonomy and approval *(partly implemented)*
 
@@ -227,6 +238,12 @@ closed. The default `fake` provider costs zero.
 
 Honest list, to be closed as the implementation lands:
 
+- The remote MCP services drop a client that stalls for 30 s and the bundled proxy
+  bounds header and body time, but nothing in the repository rate-limits a client
+  that sends valid, authenticated-looking traffic: each service admits only a few
+  simultaneous requests, so a flood can queue legitimate ones. Add a per-client limit
+  at your edge; the stock Caddy image has none. The Caddy timeout options have not
+  been validated by running `caddy validate` here.
 - The API allowlist covers only blockout constructors and properties, not general
   gameplay Luau services or methods.
 - The operator UI renders the latest audit events with readable names and field

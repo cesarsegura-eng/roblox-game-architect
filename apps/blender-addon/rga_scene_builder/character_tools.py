@@ -8,6 +8,36 @@ import bpy
 
 _RADIUS = 0.22
 CHARACTER_OBJECT_COUNT = 17  # one armature and sixteen rigidly weighted body meshes
+_SILHOUETTE_RADIIS = {
+    "balanced": {},
+    "heroic": {
+        "Head": (0.94, 0.96, 0.98),
+        "Pelvis": (1.08, 1.04, 1.0),
+        "Torso": (1.18, 1.08, 1.02),
+        "Upper Arm": (1.12, 1.10, 1.04),
+        "Forearm": (1.10, 1.08, 1.02),
+        "Thigh": (1.12, 1.08, 1.0),
+        "Shin": (1.08, 1.06, 1.0),
+    },
+    "slender": {
+        "Pelvis": (0.90, 0.94, 1.0),
+        "Torso": (0.84, 0.90, 1.0),
+        "Upper Arm": (0.88, 0.90, 1.0),
+        "Forearm": (0.86, 0.90, 1.0),
+        "Thigh": (0.90, 0.92, 1.0),
+        "Shin": (0.90, 0.92, 1.0),
+        "Foot": (0.94, 0.96, 1.0),
+    },
+    "round": {
+        "Head": (1.16, 1.12, 1.08),
+        "Pelvis": (1.12, 1.10, 1.0),
+        "Torso": (1.10, 1.10, 0.98),
+        "Upper Arm": (1.06, 1.06, 1.0),
+        "Forearm": (1.06, 1.06, 1.0),
+        "Thigh": (1.08, 1.06, 1.0),
+        "Shin": (1.04, 1.04, 1.0),
+    },
+}
 _BONE_SPECS = (
     ("Root", (0, 0, 0), (0, 0, 2.65), None),
     ("Hips", (0, 0, 2.65), (0, 0, 3.05), "Root"),
@@ -84,6 +114,21 @@ def _material(name: str, color: tuple[float, float, float, float]) -> bpy.types.
         shader.inputs["Base Color"].default_value = color
         shader.inputs["Roughness"].default_value = 0.78
     return material
+
+
+def _silhouette_radii(
+    part_name: str, radii: tuple[float, float, float], silhouette: str
+) -> tuple[float, float, float]:
+    scales = _SILHOUETTE_RADIIS[silhouette]
+    part_scale = next(
+        (
+            value
+            for prefix, value in scales.items()
+            if part_name == prefix or part_name.startswith(f"{prefix} ")
+        ),
+        (1.0, 1.0, 1.0),
+    )
+    return tuple(radius * factor for radius, factor in zip(radii, part_scale, strict=True))
 
 
 def _create_character_part(
@@ -201,10 +246,13 @@ def create_stylized_humanoid(
     name: str = "Character",
     location: tuple[float, float, float] = (0.0, 0.0, 0.0),
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    silhouette: str = "balanced",
 ) -> tuple[bpy.types.Object, list[bpy.types.Object]]:
-    """Create a rigid-weighted humanoid blockout, generic rig, and loop-compatible action."""
+    """Create a proportioned humanoid blockout, generic rig, and loop action."""
     if motion not in {"WALK", "RUN", "JUMP", "IDLE"}:
         raise ValueError("unsupported character motion preset")
+    if silhouette not in _SILHOUETTE_RADIIS:
+        raise ValueError("unsupported character silhouette preset")
     armature_data = bpy.data.armatures.new(f"{name} Skeleton")
     armature = bpy.data.objects.new(f"{name} Rig", armature_data)
     collection.objects.link(armature)
@@ -228,6 +276,7 @@ def create_stylized_humanoid(
     armature["rga_generated"] = True
     armature["rga_role"] = "character_rig_blockout"
     armature["rga_compatibility"] = "Generic rig; not a Roblox R15 avatar rig"
+    armature["rga_silhouette"] = silhouette
 
     parts = [
         ("Pelvis", "Hips", (0, 0, 2.80), (0.38, 0.25, 0.29), (0.22, 0.33, 0.48, 1)),
@@ -282,10 +331,19 @@ def create_stylized_humanoid(
                 ),
             ]
         )
-    objects = [
-        _create_character_part(name, bone, location, radii, color, armature, collection)
-        for name, bone, location, radii, color in parts
-    ]
+    objects = []
+    for part_name, bone, part_location, radii, color in parts:
+        objects.append(
+            _create_character_part(
+                part_name,
+                bone,
+                part_location,
+                _silhouette_radii(part_name, radii, silhouette),
+                color,
+                armature,
+                collection,
+            )
+        )
     for obj in objects:
         obj.name = f"{name} {obj.name}"
     _create_motion(armature, motion)

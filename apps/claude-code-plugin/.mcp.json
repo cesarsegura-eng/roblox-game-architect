@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "rga-blender": {
+      "type": "http",
+      "url": "https://${user_config.blender_mcp_host}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.blender_mcp_token}"
+      }
+    }
+  }
+}

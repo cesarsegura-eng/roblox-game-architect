@@ -145,7 +145,7 @@ def main() -> None:
     _check(
         build_schema["additionalProperties"] is False
         and set(build_schema["properties"])
-        == {"recipe", "request_id", "gameplay_mode", "gameplay_rules", "model_asset_id"}
+        == {"recipe", "request_id", "plan", "gameplay_mode", "gameplay_rules", "model_asset_id"}
         and set(build_schema["required"]) == {"recipe", "request_id"},
         "MCP place-build schema differs from the fixed recipe contract",
     )
@@ -164,7 +164,7 @@ def main() -> None:
         rules_schema.get("minItems") == 1
         and rules_schema.get("maxItems") == 16
         and {item.get("properties", {}).get("action", {}).get("const") for item in rule_variants}
-        == {"award_points", "heal", "damage", "eliminate", "award_win"},
+        == {"award_points", "heal", "damage", "eliminate", "speed_boost", "award_win"},
         "MCP data-rule schema is missing a bounded supported interaction",
     )
     publish_schema = tools_by_name["rga_publish_reviewed_place"]["inputSchema"]
@@ -432,7 +432,10 @@ def _check_playable_plan(endpoint: SplitResult, token: str) -> None:
         settings == {"gameplay_mode": "rule_game", "gameplay_rules": rules},
         "Review lost the planned mode or rules",
     )
-    built = call("rga_build_place", {"recipe": recipe, "request_id": str(uuid.uuid4()), **settings})
+    built = call(
+        "rga_build_place",
+        {"recipe": recipe, "plan": plan, "request_id": str(uuid.uuid4()), **settings},
+    )
     receipt = built["structuredContent"]
     place = base64.b64decode(receipt["place_file_base64"], validate=True)
     _check(

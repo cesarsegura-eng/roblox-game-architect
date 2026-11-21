@@ -8,7 +8,13 @@ from core.evaluation import WORLD_EVALUATION_CASES, assess_world_result
 from core.worldbuilding import SceneRecipe, WorldBuildResult, _select_skill_names
 
 
-def _result(case_id: str, *, omit_role: str | None = None, omit_motion: bool = False):
+def _result(
+    case_id: str,
+    *,
+    omit_role: str | None = None,
+    omit_motion: bool = False,
+    omit_silhouette: str | None = None,
+):
     case = next(case for case in WORLD_EVALUATION_CASES if case.case_id == case_id)
     roles = []
     for role in case.required_roles:
@@ -28,6 +34,14 @@ def _result(case_id: str, *, omit_role: str | None = None, omit_motion: bool = F
     objects = []
     for index, role in enumerate(roles):
         location = [index * 2, 0, 0]
+        if case_id == "volcanic-cave-crossing":
+            location = {
+                "exterior": [0, 0, 0],
+                "entry": [2, 0, 0],
+                "opening": [4, 0, 0],
+                "interior": [6, 0, 0],
+                "landmark": [8, 0, 0],
+            }.get(role, location)
         if role == "path":
             location = [entry_index * 2, path_centers[path_index], 0]
             path_index += 1
@@ -77,6 +91,12 @@ def _result(case_id: str, *, omit_role: str | None = None, omit_motion: bool = F
             {
                 "name": f"Character {index}",
                 "motion": motion,
+                **(
+                    {"silhouette": case.required_character_silhouettes[index]}
+                    if index < len(case.required_character_silhouettes)
+                    and case.required_character_silhouettes[index] != omit_silhouette
+                    else {}
+                ),
                 "location": [index * 4, 0, 0],
                 "scale": [1, 1, 1],
             }
@@ -134,6 +154,7 @@ def test_fixed_world_design_cases_cover_environment_architecture_and_motion():
         "coastal-wetland",
         "alpine-inn",
         "mangrove-stilt-house",
+        "volcanic-cave-crossing",
         "guard-walk-cycle",
     }
     assert all(
@@ -173,6 +194,8 @@ def test_offline_evaluation_cli_passes_all_cases_with_reviewed_fixtures(monkeypa
     assert report["evaluation_mode"] == "reviewed_fixture_generation"
     assert report["passed"] == len(WORLD_EVALUATION_CASES)
     assert report["failed"] == 0
+    assert report["spent_usd"] == "0"
+    assert "does not assess visual quality" in report["scope"]
 
 
 def test_evaluation_fails_when_requested_role_is_missing():
@@ -239,6 +262,82 @@ def test_collect_and_win_evaluation_rejects_hazard_detached_from_route():
     assert "path/hazard" in proximity.detail
 
 
+def test_collect_and_win_evaluation_rejects_individual_collectible_detached_from_route():
+    case, result = _result("rainforest-collect-and-win")
+    mapping = result.recipe.to_mapping()
+    collectibles = [item for item in mapping["objects"] if item["role"] == "collectible"]
+    collectibles[-1]["location"][0] += 100
+    detached_collectible = WorldBuildResult(
+        SceneRecipe.from_mapping(mapping),
+        result.iterations,
+        result.responses,
+        result.skill_names,
+    )
+
+    assessed = assess_world_result(case, detached_collectible)
+
+    assert not assessed.passed
+    pair_proximity = next(
+        check for check in assessed.checks if check.name == "required_role_proximities"
+    )
+    assert pair_proximity.passed
+    coverage = next(check for check in assessed.checks if check.name == "required_role_coverage")
+    assert not coverage.passed
+    assert "Object" in coverage.detail and "collectible" in coverage.detail
+
+
+def test_collect_and_win_evaluation_requires_coins_on_distinct_route_segments():
+    case, result = _result("rainforest-collect-and-win")
+    mapping = result.recipe.to_mapping()
+    paths = [item for item in mapping["objects"] if item["role"] == "path"]
+    collectibles = [item for item in mapping["objects"] if item["role"] == "collectible"]
+    for collectible in collectibles:
+        collectible["location"] = [*paths[0]["location"]]
+    clustered_collectibles = WorldBuildResult(
+        SceneRecipe.from_mapping(mapping),
+        result.iterations,
+        result.responses,
+        result.skill_names,
+    )
+
+    assessed = assess_world_result(case, clustered_collectibles)
+
+    assert not assessed.passed
+    coverage = next(check for check in assessed.checks if check.name == "required_role_coverage")
+    assert coverage.passed
+    distribution = next(
+        check for check in assessed.checks if check.name == "required_role_distribution"
+    )
+    assert not distribution.passed
+    assert "1 distinct targets; minimum 3" in distribution.detail
+
+
+def test_collect_and_win_distribution_finds_optimal_assignment_when_nearest_is_shared():
+    case, result = _result("rainforest-collect-and-win")
+    mapping = result.recipe.to_mapping()
+    paths = [item for item in mapping["objects"] if item["role"] == "path"]
+    collectibles = [item for item in mapping["objects"] if item["role"] == "collectible"]
+    for index, path in enumerate(paths):
+        path["location"] = [index * 2.0, 0, 0]
+        path["scale"] = [2.0, 0.2, 0.2]
+    for collectible, x in zip(collectibles, (0.4, -2.5, 4.0), strict=True):
+        collectible["location"] = [x, 0, 0]
+        collectible["scale"] = [0.1, 0.1, 0.1]
+    overlapping_neighborhoods = WorldBuildResult(
+        SceneRecipe.from_mapping(mapping),
+        result.iterations,
+        result.responses,
+        result.skill_names,
+    )
+
+    assessed = assess_world_result(case, overlapping_neighborhoods)
+
+    distribution = next(
+        check for check in assessed.checks if check.name == "required_role_distribution"
+    )
+    assert distribution.passed
+
+
 def test_alpine_path_evaluation_requires_multiple_connected_segments():
     case, result = _result("alpine-inn")
     mapping = result.recipe.to_mapping()
@@ -259,6 +358,28 @@ def test_alpine_path_evaluation_requires_multiple_connected_segments():
     )
     assert not route_check.passed
     assert "2 segments; minimum 3" in route_check.detail
+
+
+def test_obby_evaluation_requires_consecutive_segments_to_connect_in_recipe_order():
+    case, result = _result("rainforest-checkpoint-obby")
+    mapping = result.recipe.to_mapping()
+    paths = [item for item in mapping["objects"] if item["role"] == "path"]
+    paths[1]["location"], paths[2]["location"] = paths[2]["location"], paths[1]["location"]
+    reordered_route = WorldBuildResult(
+        SceneRecipe.from_mapping(mapping),
+        result.iterations,
+        result.responses,
+        result.skill_names,
+    )
+
+    assessed = assess_world_result(case, reordered_route)
+
+    assert not assessed.passed
+    connected = next(check for check in assessed.checks if check.name == "connected_path_segments")
+    assert connected.passed
+    ordered = next(check for check in assessed.checks if check.name == "ordered_route_sequence")
+    assert not ordered.passed
+    assert "Object" in ordered.detail
 
 
 def test_navigable_map_evaluation_rejects_a_path_without_an_elongated_footprint():
@@ -422,3 +543,16 @@ def test_evaluation_fails_when_requested_character_motion_is_missing():
     motion_check = next(check for check in assessed.checks if check.name == "character_motions")
     assert not motion_check.passed
     assert "WALK" in motion_check.detail
+
+
+def test_evaluation_requires_requested_character_silhouette_presets():
+    case, result = _result("guard-walk-cycle", omit_silhouette="slender")
+
+    assessed = assess_world_result(case, result)
+
+    assert not assessed.passed
+    silhouette_check = next(
+        check for check in assessed.checks if check.name == "character_silhouettes"
+    )
+    assert not silhouette_check.passed
+    assert "slender" in silhouette_check.detail

@@ -7,7 +7,9 @@ small parameter surface validated against the scene recipe before serialization.
 from __future__ import annotations
 
 from collections import Counter
+from itertools import pairwise
 
+from .spatial import PATH_SEGMENT_MAX_GAP, bounds_distance, object_bounds
 from .worldbuilding import SceneRecipe, WorldbuildingError, _validate_requested_world_roles
 
 GAMEPLAY_MODES = frozenset({"blockout", "obby", "treasure_hunt", "rule_game"})
@@ -49,6 +51,15 @@ def validate_gameplay_mode(mode: object, recipe: SceneRecipe, gameplay_rules: ob
             _validate_requested_world_roles(recipe, {"path"})
         except WorldbuildingError as exc:
             raise GameplayTemplateError(str(exc)) from exc
+        paths = [item for item in recipe.objects if item.role == "path"]
+        for first, second in pairwise(paths):
+            gap = bounds_distance(object_bounds(first), object_bounds(second))
+            if gap > PATH_SEGMENT_MAX_GAP:
+                raise GameplayTemplateError(
+                    f"obby route order is disconnected between {first.name!r} and "
+                    f"{second.name!r} ({gap:.1f} Blender units; maximum "
+                    f"{PATH_SEGMENT_MAX_GAP:g})"
+                )
     return mode
 
 
@@ -106,6 +117,24 @@ def validate_gameplay_rules(value: object, recipe: SceneRecipe) -> list[dict[str
             if set(rule) != {"trigger_role", "action"} or role != "hazard":
                 raise GameplayTemplateError("eliminate rules require hazard and have no parameters")
             amount = None
+        elif action == "speed_boost":
+            if role not in {"collectible", "prop"} or set(rule) != {
+                "trigger_role",
+                "action",
+                "amount",
+                "duration_seconds",
+            }:
+                raise GameplayTemplateError(
+                    "speed_boost requires a collectible or prop, amount and duration_seconds"
+                )
+            amount = rule["amount"]
+            duration = rule["duration_seconds"]
+            if type(amount) is not int or not 1 <= amount <= 16:
+                raise GameplayTemplateError("speed_boost amount must be an integer from 1 to 16")
+            if type(duration) is not int or not 1 <= duration <= 30:
+                raise GameplayTemplateError(
+                    "speed_boost duration_seconds must be an integer from 1 to 30"
+                )
         elif action == "award_win":
             if set(rule) != {"trigger_role", "action", "minimum_points"} or role != "landmark":
                 raise GameplayTemplateError("award_win rules require landmark and minimum_points")
@@ -125,7 +154,16 @@ def validate_gameplay_rules(value: object, recipe: SceneRecipe) -> list[dict[str
             {
                 "trigger_role": role,
                 "action": action,
-                **({"amount": amount} if action in {"award_points", "heal", "damage"} else {}),
+                **(
+                    {"amount": amount}
+                    if action in {"award_points", "heal", "damage", "speed_boost"}
+                    else {}
+                ),
+                **(
+                    {"duration_seconds": rule["duration_seconds"]}
+                    if action == "speed_boost"
+                    else {}
+                ),
                 **({"minimum_points": amount} if action == "award_win" else {}),
             }
         )
@@ -158,8 +196,10 @@ local rules = HttpService:JSONDecode(encodedRules.Value)
 assert(type(rules) == "table" and #rules >= 1 and #rules <= 16, "Invalid gameplay rules")
 local pointsByPlayer = {}
 local consumedByPlayer = {}
+local roundReadyByPlayer = {}
 local actionsByRole = {}
 local partsByRole = {}
+local speedBoosts = {}
 local availablePoints = 0
 local winThreshold = 0
 local hudByPlayer = {}
@@ -181,15 +221,22 @@ local function createHud(player)
     local gui = Instance.new("ScreenGui")
     gui.Name = "RGA Objective"
     gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = false
+    gui.DisplayOrder = 10
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     local label = Instance.new("TextLabel")
     label.Name = "Progress"
-    label.Position = UDim2.fromScale(0.1, 0.02)
-    label.Size = UDim2.new(0.8, 0, 0, 112)
+    label.Position = UDim2.new(0.04, 0, 0.02, 0)
+    label.Size = UDim2.new(0.92, 0, 0, 0)
+    label.AutomaticSize = Enum.AutomaticSize.Y
     label.BackgroundColor3 = Color3.fromRGB(20, 28, 36)
-    label.BackgroundTransparency = 0.15
+    label.BackgroundTransparency = 0.08
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextSize = 18
     label.TextWrapped = true
+    label.TextScaled = false
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = gui
     hudByPlayer[player] = label
     updateHud(player)
@@ -202,6 +249,7 @@ local function addPlayer(player)
     end
     pointsByPlayer[player] = 0
     consumedByPlayer[player] = {}
+    roundReadyByPlayer[player] = true
     player.RespawnLocation = spawnPoint
     local leaderstats = Instance.new("Folder")
     leaderstats.Name = "leaderstats"
@@ -237,17 +285,20 @@ for _, rule in ipairs(rules) do
         or (action == "damage" and role == "hazard")
         or (action == "award_win" and role == "landmark")
         or (action == "eliminate" and role == "hazard")
+        or (action == "speed_boost" and (role == "collectible" or role == "prop"))
     assert(validAction, "Invalid gameplay rule action")
     local fieldCount = 0
     for key in pairs(rule) do
         local allowedField = key == "trigger_role" or key == "action"
             or ((action == "award_points" or action == "heal" or action == "damage")
                 and key == "amount")
+            or (action == "speed_boost" and (key == "amount" or key == "duration_seconds"))
             or (action == "award_win" and key == "minimum_points")
         assert(allowedField, "Unexpected gameplay rule field")
         fieldCount += 1
     end
-    local expectedFieldCount = if action == "eliminate" then 2 else 3
+    local expectedFieldCount = if action == "eliminate" then 2
+        elseif action == "speed_boost" then 4 else 3
     assert(fieldCount == expectedFieldCount, "Invalid gameplay rule fields")
     if action == "award_points" then
         assert(
@@ -266,6 +317,15 @@ for _, rule in ipairs(rules) do
             type(rule.amount) == "number" and rule.amount % 1 == 0
                 and rule.amount >= 1 and rule.amount <= 100,
             "Invalid damage amount"
+        )
+    elseif action == "speed_boost" then
+        assert(
+            type(rule.amount) == "number" and rule.amount % 1 == 0
+                and rule.amount >= 1 and rule.amount <= 16
+                and type(rule.duration_seconds) == "number"
+                and rule.duration_seconds % 1 == 0
+                and rule.duration_seconds >= 1 and rule.duration_seconds <= 30,
+            "Invalid speed boost"
         )
     elseif action == "award_win" then
         assert(
@@ -302,6 +362,7 @@ Players.PlayerAdded:Connect(addPlayer)
 Players.PlayerRemoving:Connect(function(player)
     pointsByPlayer[player] = nil
     consumedByPlayer[player] = nil
+    roundReadyByPlayer[player] = nil
     hudByPlayer[player] = nil
 end)
 for _, player in Players:GetPlayers() do
@@ -315,6 +376,12 @@ for role, parts in pairs(partsByRole) do
             local player, humanoid = playerFromHit(hit)
             local consumed = player and consumedByPlayer[player]
             if not consumed then
+                return
+            end
+            if not roundReadyByPlayer[player] then
+                if actions.eliminate then
+                    humanoid.Health = 0
+                end
                 return
             end
             local leaderstats = player.leaderstats
@@ -332,12 +399,38 @@ for role, parts in pairs(partsByRole) do
                     local healed = humanoid.Health + actions.heal.amount
                     humanoid.Health = math.min(humanoid.MaxHealth, healed)
                 end
+                if actions.speed_boost then
+                    local state = speedBoosts[humanoid]
+                    if not state then
+                        state = { original = humanoid.WalkSpeed, token = 0 }
+                        speedBoosts[humanoid] = state
+                    end
+                    state.token += 1
+                    local token = state.token
+                    humanoid.WalkSpeed = math.min(
+                        32, humanoid.WalkSpeed + actions.speed_boost.amount
+                    )
+                    task.delay(actions.speed_boost.duration_seconds, function()
+                        if speedBoosts[humanoid] == state and state.token == token then
+                            if humanoid.Parent then
+                                humanoid.WalkSpeed = state.original
+                            end
+                            speedBoosts[humanoid] = nil
+                        end
+                    end)
+                end
             end
             if actions.award_win and pointsByPlayer[player] >= winThreshold then
                 leaderstats.Wins.Value += 1
                 pointsByPlayer[player] = 0
                 leaderstats.Points.Value = 0
                 consumedByPlayer[player] = {}
+                roundReadyByPlayer[player] = false
+                task.delay(1, function()
+                    if player.Parent and roundReadyByPlayer[player] == false then
+                        roundReadyByPlayer[player] = true
+                    end
+                end)
             end
             if actions.eliminate then
                 humanoid.Health = 0
@@ -362,12 +455,14 @@ local collectibles = collectibleFolder:GetChildren()
 local targetCount = #collectibles
 assert(targetCount > 0, "Treasure Hunt needs at least one collectible")
 local playerCollections = {}
+local roundReadyByPlayer = {}
 
 local function addPlayer(player)
     if playerCollections[player] ~= nil then
         return
     end
     playerCollections[player] = {}
+    roundReadyByPlayer[player] = true
     local leaderstats = Instance.new("Folder")
     leaderstats.Name = "leaderstats"
     leaderstats.Parent = player
@@ -384,6 +479,7 @@ end
 Players.PlayerAdded:Connect(addPlayer)
 Players.PlayerRemoving:Connect(function(player)
     playerCollections[player] = nil
+    roundReadyByPlayer[player] = nil
 end)
 for _, player in Players:GetPlayers() do
     addPlayer(player)
@@ -398,7 +494,8 @@ for _, collectible in collectibles do
             local treasures = leaderstats and leaderstats:FindFirstChild("Treasures")
             local victories = leaderstats and leaderstats:FindFirstChild("Victories")
             local collected = player and playerCollections[player]
-            if not treasures or not victories or not collected or collected[collectible] then
+            if not treasures or not victories or not collected or collected[collectible]
+                or not roundReadyByPlayer[player] then
                 return
             end
 
@@ -406,6 +503,14 @@ for _, collectible in collectibles do
             treasures.Value += 1
             if treasures.Value >= targetCount then
                 victories.Value += 1
+                treasures.Value = 0
+                playerCollections[player] = {}
+                roundReadyByPlayer[player] = false
+                task.delay(1, function()
+                    if player.Parent and roundReadyByPlayer[player] ~= nil then
+                        roundReadyByPlayer[player] = true
+                    end
+                end)
             end
         end)
     end

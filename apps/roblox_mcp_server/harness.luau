@@ -12,7 +12,9 @@ assert(#recipe.objects <= 512, "RGA object limit exceeded")
 local created = Instance.new("Folder")
 created.Name = "RGA_Disposable_Validation"
 created.Parent = workspace
+local function buildResult()
 local routePoints = {}
+local routeNames = {}
 local objectCount = 0
 
 assert(recipe.geometry_version == 1, "unsupported collision geometry version")
@@ -41,11 +43,13 @@ for _, spec in ipairs(recipe.objects) do
     objectCount += 1
     if spec.role == "path" then
         table.insert(routePoints, part.CFrame:PointToWorldSpace(Vector3.new(0, part.Size.Y / 2 + 2, 0)))
+        table.insert(routeNames, string.sub(spec.name, 1, 64))
     end
 end
 
 local reachable = 0
 local navigationConnected = false
+local failedRouteLeg = nil
 if #routePoints >= 2 then
 	local path = PathfindingService:CreatePath({
 		AgentRadius = 2,
@@ -61,6 +65,12 @@ if #routePoints >= 2 then
             then #path:GetWaypoints() else 0
         if count == 0 then
             navigationConnected = false
+            failedRouteLeg = {
+                -- `index` is the 1-based destination point; leg indexes are 0-based.
+                leg_index = index - 2,
+                from = routeNames[index - 1],
+                to = routeNames[index],
+            }
             break
         end
         reachable = math.min(512, reachable + count)
@@ -74,6 +84,14 @@ local result = {
 	path_feature_count = #routePoints,
 	navigation_waypoint_count = reachable,
 	navigation_connected = navigationConnected,
+	navigation_failed_leg = failedRouteLeg,
 }
+return result
+end
+
+local ok, result = pcall(buildResult)
 created:Destroy()
+if not ok then
+    error(result)
+end
 return result

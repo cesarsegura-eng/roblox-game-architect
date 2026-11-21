@@ -1,7 +1,7 @@
 # Conformance vectors
 
 Every implementation of the protocol — the Python reference in `../../tests/`, the
-future API parser, the future Luau parser and validator — must give each vector the
+future API validator, and the Studio plugin's strict Luau parser and validator — must give each vector the
 result it declares. **Only the Python reference has been run against them.**
 
 `index.json` lists every vector by group, so a runtime that cannot list a directory

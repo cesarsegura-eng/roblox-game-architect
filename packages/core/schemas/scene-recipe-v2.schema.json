@@ -367,6 +367,7 @@
           "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"
         },
         "motion": {"enum": ["WALK", "RUN", "JUMP", "IDLE"]},
+        "silhouette": {"enum": ["balanced", "heroic", "slender", "round"]},
         "location": {"$ref": "#/$defs/location"},
         "scale": {
           "type": "array",

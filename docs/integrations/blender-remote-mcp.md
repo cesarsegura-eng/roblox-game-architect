@@ -3,12 +3,18 @@
 Blender runs in a dedicated server environment, separate from the Roblox Game
 Architect user's computer. The server-side Blender worker validates a strict
 Scene Recipe, builds the scene in a clean background process, and exports a GLB.
-The requesting MCP client receives an artifact receipt. In the agent-first
-workflow, the connected Roblox MCP service can retrieve that artifact directly
-from the fixed Blender host for an explicitly reviewed Roblox asset upload;
-the GLB does not need to pass through the user's computer. The optional operator
-API can also retrieve a reviewed artifact for download. No local Blender or
-Roblox Studio installation is needed for remote authoring.
+The requesting MCP client receives an artifact receipt. If
+`BLENDER_MCP_PUBLIC_ORIGIN` is configured, the receipt also includes a signed
+15-minute HTTPS download link for that one artifact. Claude Code can download
+the model data into a folder already approved by Roblox Studio's native MCP and
+upload it through the existing `open_cloud_invoke` flow after the user's
+approval. This does not add another Roblox MCP connection or require Blender on
+the user's computer. Roblox documents an Open Cloud upload limit of 20 MB per
+asset file in its [Assets usage guide](https://create.roblox.com/docs/cloud/guides/usage-assets).
+RGA caps its client and server paths at 19 MiB (19,922,944 bytes), including the
+signed Blender-to-Roblox transfer; larger GLBs need a reduced or rebuilt recipe
+for that path. The optional operator API can also retrieve a reviewed artifact
+for download.
 
 Deploy the reference service using the [remote server guide](../../apps/blender_mcp_server/README.md).
 Configure the API process with `BLENDER_MCP_URL` and
@@ -25,10 +31,12 @@ project's remote tool contract by itself ([Blender MCP security note](https://ww
 The reference service accepts only a recipe object and an idempotency UUID. It
 validates the recipe against the same contract as the local extension, then
 starts a trusted Blender background process with bounded time, memory, and
-output. It exposes only an authenticated, ID-addressed GLB download. It does
-not accept source code, arbitrary `bpy` commands, caller-supplied file paths,
-or generic execution payloads. Generated scenes are built in a fresh Blender
-process, so existing user scenes are not touched.
+output. It exposes an authenticated, ID-addressed GLB download for configured
+service clients and a signed, time-limited link for the reviewed agent handoff.
+Do not record artifact request paths or query strings in reverse-proxy access
+logs. The service does not accept source code, arbitrary `bpy` commands,
+caller-supplied file paths, or generic execution payloads. Generated scenes are
+built in a fresh Blender process, so existing user scenes are not touched.
 
 Scene Recipe v2 and v3 also support bounded humanoid blockouts with a fixed skeleton,
 rigid skin weights, and a `WALK`, `RUN`, `JUMP`, or `IDLE` animation preset. The request supplies
@@ -42,8 +50,27 @@ keep Studio Importer's **Scale Unit** set to **Studs**. This matches the
 [Creator Hub Blender guidance](https://create.roblox.com/docs/art/blender) and
 [Importer settings](https://create.roblox.com/docs/studio/importer). Roblox's
 standard GLB path uses the full `.gltf` payload exported by the worker; the
-Studio proxy uses the same stud dimensions and preserves object rotation, while
-reducing each mesh to an oriented Part bounding box.
+worker exports geometry, skin, and animation data but omits glTF light nodes
+(`KHR_lights_punctual`), which the Roblox asset preflight does not accept. Use
+the script-free `.rbxlx` artifact for recipe lighting. The Studio proxy uses
+the same stud dimensions and preserves object rotation, while reducing each
+mesh to an oriented Part bounding box.
+
+The signed artifact URL is tied to the artifact UUID and an expiry no more than
+15 minutes in the future. It does not carry the Blender MCP bearer credential.
+Treat the URL itself as a temporary secret, keep its query out of logs, and
+verify the downloaded file's size and SHA-256 before the native Studio MCP
+upload. See Roblox's [Open Cloud with Studio MCP
+guide](https://create.roblox.com/docs/studio/mcp-open-cloud) and [asset usage
+guide](https://create.roblox.com/docs/cloud/guides/usage-assets) for the current
+approved-folder, permissions, and upload-size rules.
+
+The Blender receipt includes the lowercase SHA-256 digest of the completed GLB.
+The operator API carries that value into its audit record and response; the web
+operator hashes the downloaded bytes and refuses to offer a file whose digest
+does not match the receipt. Agent skills must make the same comparison before
+using any other artifact handoff. The API operator download route also checks
+the bytes against the recent receipt before forwarding the GLB.
 
 The API validates the recipe before sending it and records successful remote
 builds in the local operator audit log. The operator reviews the full recipe

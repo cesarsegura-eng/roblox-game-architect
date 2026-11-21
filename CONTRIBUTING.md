@@ -32,7 +32,9 @@ uv run python -m pytest
 
 That last command runs `tests/test_scaffolding.py`, which checks the repository
 itself (line endings, `.gitattributes`, and that `LLM_PROVIDER=fake` is in
-effect). There is no engine to run yet.
+effect). The test suite does not embed Roblox Studio; engine checks use a local
+disposable place and the procedures in
+[`docs/runbook-live-verification.md`](docs/runbook-live-verification.md).
 
 If you would rather not use uv, `pip install -e ".[dev]"` in a virtual
 environment works too — the dev dependencies stay declared as an extra, not a
@@ -67,7 +69,8 @@ a ready-to-enable block in `.github/dependabot.yml`.
 
 ### Luau tooling
 
-Optional until `apps/studio-plugin` has source:
+The current Studio plugin and developer-only engine drivers use the toolchain
+pinned in `aftman.toml` (Rokit reads this file):
 
 ```bash
 rokit install
@@ -78,12 +81,15 @@ That installs `rojo`, `selene` and `stylua` at the versions pinned in
 has not been renamed. aftman itself is no longer used: its repository is
 archived.
 
-`selene` needs the Roblox standard library, which is generated rather than
-bundled:
+`selene` uses the checked-in Roblox standard library in `roblox.yml`, pinned by
+`selene.toml` so local lint and CI don't fetch the API at run time. To update
+that engine API baseline intentionally, run:
 
 ```bash
-selene update-roblox-std
+selene generate-roblox-std
 ```
+
+Review the resulting `roblox.yml` diff before committing it.
 
 ## Checks
 
@@ -101,15 +107,28 @@ uv run ruff format --check .
 uv run python -m pytest
 ```
 
-The Luau checks only do something once `apps/studio-plugin/src` has files; CI
-skips them until then.
+CI lints the Studio plugin and Play Solo drivers and checks their formatting.
+Run the same checks locally with the pinned tools:
 
 ```bash
-selene apps/studio-plugin/src
+selene apps/studio-plugin/src \
+  tools/studio_rainforest_obby.luau \
+  tools/studio_rainforest_obby_multiplayer.luau \
+  tools/studio_treasure_hunt.luau \
+  tools/studio_rule_game_speed_boost.luau \
+  tools/studio_rule_game_round_reset.luau
 ```
 
 ```bash
-stylua --check apps/studio-plugin/src
+stylua --check \
+  apps/studio-plugin/src/Main.plugin.lua \
+  apps/studio-plugin/src/Protocol/StrictJson.lua \
+  apps/studio-plugin/src/Protocol/SchemaValidator.lua \
+  tools/studio_rainforest_obby.luau \
+  tools/studio_rainforest_obby_multiplayer.luau \
+  tools/studio_treasure_hunt.luau \
+  tools/studio_rule_game_speed_boost.luau \
+  tools/studio_rule_game_round_reset.luau
 ```
 
 ## Code style

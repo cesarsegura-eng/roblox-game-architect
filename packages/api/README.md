@@ -3,7 +3,7 @@
 HTTP endpoints, authentication, session state, persistence, and orchestration of
 long-running agent runs.
 
-**Status: the plugin channel, local operator UI, game-planning API, quoted static Luau preview, Blender recipe routes, remote Blender MCP client, generated Studio blockout queue, remote Roblox place-build client, and fixed-harness validation client are implemented.** What runs today is
+**Status: the plugin channel, local operator UI, game-planning and release-readiness APIs, quoted static Luau preview, Blender recipe routes, remote Blender MCP client, generated Studio blockout queue, remote Roblox place-build client, and fixed-harness validation client are implemented.** What runs today is
 the whole protocol loop of
 [ADR-0011](../../docs/architecture/adr/0011-delivery-execution-and-recovery.md) over the
 transport of [ADR-0007](../../docs/architecture/adr/0007-plugin-initiated-http-transport.md):
@@ -39,6 +39,24 @@ and changes no Studio place. Its audit records per-call provider, model, token
 usage, and cost, plus matching run totals, without the prompts or generated plan.
 The included `game-design-planning` skill separates
 script-free blockout work from features that require later implementation.
+
+`POST /v1/operator/release-readiness` accepts `{"plan": <Game Plan v2>}` and
+returns a separate evidence-oriented release checklist. It always fails closed:
+every gate starts pending, persistence/commerce/multiplayer applicability remains
+an owner decision unless the plan indicates those features, and no Studio,
+platform-policy, or production state is inferred. The endpoint is a read-only
+planning aid, not release certification. The operator panel can display and
+download the JSON checklist so a release owner can maintain it alongside the
+team's independent verification evidence. Its strict contract is
+[`release-readiness-v1`](../core/schemas/release-readiness-v1.schema.json).
+After downloading a pending report, `python tools/package_release_evidence.py`
+can create a deterministic local ZIP inventory from explicitly selected
+workspace files. The manifest binds each file to a gate and records its SHA-256;
+`python tools/verify_release_evidence.py` checks the ZIP structure and hashes
+without extracting files or changing gate status; pass `--sha256` with a digest
+obtained through a trusted channel to verify the exact ZIP bytes. Neither
+command verifies evidence claims or certifies readiness. See the
+live-verification runbook for limits and an example.
 
 `POST /v1/operator/code-preview-quote` and `POST /v1/operator/code-preview`
 accept a bounded task description and declared `Workspace/.../**` scope. They

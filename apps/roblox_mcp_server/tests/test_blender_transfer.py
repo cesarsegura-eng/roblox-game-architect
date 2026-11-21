@@ -29,21 +29,23 @@ from apps.roblox_mcp_server.server import (
 from core.roblox_place import RobloxPlaceBuild
 
 
-def _glb(document: dict[str, Any] | None = None) -> bytes:
+def _glb(document: dict[str, Any] | None = None, *, vertex_count: int = 3) -> bytes:
     value = document or {
         "asset": {"version": "2.0"},
-        "meshes": [{"primitives": [{"attributes": {}}]}],
+        "buffers": [{"byteLength": vertex_count * 12}],
+        "bufferViews": [{"buffer": 0, "byteLength": vertex_count * 12}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": vertex_count, "type": "VEC3"}
+        ],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
     }
     chunk = json.dumps(value, separators=(",", ":")).encode("utf-8")
     chunk += b" " * ((-len(chunk)) % 4)
-    return (
-        b"glTF"
-        + (2).to_bytes(4, "little")
-        + (20 + len(chunk)).to_bytes(4, "little")
-        + len(chunk).to_bytes(4, "little")
-        + (0x4E4F534A).to_bytes(4, "little")
-        + chunk
-    )
+    binary = b"\0" * (vertex_count * 12) if document is None else b""
+    chunks = len(chunk).to_bytes(4, "little") + (0x4E4F534A).to_bytes(4, "little") + chunk
+    if binary:
+        chunks += len(binary).to_bytes(4, "little") + (0x004E4942).to_bytes(4, "little") + binary
+    return b"glTF" + (2).to_bytes(4, "little") + (12 + len(chunks)).to_bytes(4, "little") + chunks
 
 
 class _MemorySource:
@@ -235,7 +237,7 @@ def test_changed_or_uncertain_blender_artifacts_never_resubmit(tmp_path: Path) -
     upload_ledger = AssetUploadLedger(tmp_path / "assets.sqlite3")
     uploader = _uploader()
     prepared = transfer.prepare(source, artifact_id, now=100)
-    source.data = _glb({"asset": {"version": "2.0"}, "meshes": [{"changed": True}]})
+    source.data = _glb(vertex_count=6)
     with pytest.raises(ValueError, match="changed after the review"):
         transfer.upload(
             source,

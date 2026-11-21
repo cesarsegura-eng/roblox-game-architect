@@ -43,6 +43,14 @@ _TASK = (
 def test_mcp_gameplay_rule_input_schema_is_closed_and_bounded():
     schema = _build_tool_definition()["inputSchema"]
     Draft202012Validator.check_schema(schema)
+    assert set(schema["properties"]) == {
+        "recipe",
+        "plan",
+        "request_id",
+        "gameplay_mode",
+        "gameplay_rules",
+        "model_asset_id",
+    }
     validator = Draft202012Validator(schema)
     payload = {
         "recipe": {},
@@ -55,6 +63,14 @@ def test_mcp_gameplay_rule_input_schema_is_closed_and_bounded():
         ],
     }
     assert validator.is_valid(payload)
+    plan = json.loads(
+        (_ROOT / "examples/worlds/rainforest-checkpoint-obby/game-plan.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    with_plan = json.loads(json.dumps(payload))
+    with_plan["plan"] = plan
+    assert validator.is_valid(with_plan)
     conflicting = json.loads(json.dumps(payload))
     conflicting["gameplay_rules"].append({"trigger_role": "hazard", "action": "eliminate"})
     assert not validator.is_valid(conflicting)
@@ -86,6 +102,7 @@ def _result(recipe: dict[str, Any]) -> dict[str, Any]:
         "path_feature_count": sum(item["role"] == "path" for item in recipe["objects"]),
         "navigation_waypoint_count": 4 if paths >= 2 else 0,
         "navigation_connected": paths >= 2,
+        "navigation_failed_leg": None,
     }
 
 
@@ -282,6 +299,7 @@ def test_malformed_harness_result_is_rejected():
         (2, 0, False, "navigation_failed", True),
         (2, 2, False, "navigation_failed", False),
         (3, 2, False, "navigation_failed", True),
+        (3, 0, False, "navigation_failed", True),
         (3, 1, True, "navigation_pass", False),
     ],
 )
@@ -304,11 +322,47 @@ def test_navigation_receipt_rejects_contradictory_evidence(
         "navigation_connected": connected,
         "validation_status": status,
     }
+    route_names = [item.name for item in recipe.objects if item.role == "path"]
+    failed_index = 1 if paths == 3 and waypoints > 0 else 0
+    receipt["navigation_failed_leg"] = (
+        {
+            "leg_index": failed_index,
+            "from": route_names[failed_index],
+            "to": route_names[failed_index + 1],
+        }
+        if status == "navigation_failed"
+        else None
+    )
     if valid:
         assert RobloxMCPClient._receipt(receipt, recipe, request_id).validation_status == status
     else:
-        with pytest.raises(RobloxMCPError, match=r"contradictory|contradicts"):
+        with pytest.raises(
+            RobloxMCPError, match=r"contradictory|contradicts|invalid route diagnostic"
+        ):
             RobloxMCPClient._receipt(receipt, recipe, request_id)
+
+
+def test_failed_first_route_leg_cannot_report_waypoints_from_earlier_legs():
+    payload = json.loads(json.dumps(_RECIPE))
+    for index, item in enumerate(payload["objects"]):
+        item["role"] = "path" if index < 3 else "prop"
+    recipe = SceneRecipe.from_mapping(payload)
+    paths = [item.name for item in recipe.objects if item.role == "path"]
+    request_id = str(uuid.uuid4())
+    receipt = {
+        "request_id": request_id,
+        "place_version": "7",
+        "task_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "object_count": len(recipe.objects),
+        "path_feature_count": len(paths),
+        "navigation_waypoint_count": 2,
+        "navigation_connected": False,
+        "validation_status": "navigation_failed",
+        "navigation_failed_leg": {"leg_index": 0, "from": paths[0], "to": paths[1]},
+    }
+
+    with pytest.raises(RobloxMCPError, match="invalid route diagnostic"):
+        RobloxMCPClient._receipt(receipt, recipe, request_id)
 
 
 def test_cloud_rejects_navigation_evidence_without_a_route():
@@ -333,10 +387,31 @@ def test_disconnected_route_is_reported_as_navigation_failure():
             result = _result(recipe)
             result["navigation_connected"] = False
             result["navigation_waypoint_count"] = 0
+            path_names = [item["name"] for item in recipe["objects"] if item["role"] == "path"]
+            result["navigation_failed_leg"] = {
+                "leg_index": 0,
+                "from": path_names[0],
+                "to": path_names[1],
+            }
             return {"state": "COMPLETE", "output": {"results": [result]}}
 
     receipt = Disconnected().validate_recipe(recipe)
     assert receipt["validation_status"] == "navigation_failed"
+
+
+def test_fixed_harness_reports_zero_based_failed_route_leg():
+    harness = (_ROOT / "apps" / "roblox_mcp_server" / "harness.luau").read_text(encoding="utf-8")
+    assert "leg_index = index - 2" in harness
+    assert "from = routeNames[index - 1]" in harness
+    assert "to = routeNames[index]" in harness
+
+
+def test_fixed_harness_cleans_temporary_parts_after_success_or_error():
+    harness = (_ROOT / "apps" / "roblox_mcp_server" / "harness.luau").read_text(encoding="utf-8")
+    protected_call = harness.index("local ok, result = pcall(buildResult)")
+    cleanup = harness.index("created:Destroy()", protected_call)
+    rethrow = harness.index("if not ok then", cleanup)
+    assert protected_call < cleanup < rethrow
 
 
 def test_uncertain_cloud_request_is_not_retried_for_same_id(tmp_path: Path):
@@ -569,6 +644,12 @@ def test_remote_mcp_builds_validated_data_driven_gameplay_rules(tmp_path: Path):
     )
     rules = [
         {"trigger_role": "collectible", "action": "award_points", "amount": 1},
+        {
+            "trigger_role": "collectible",
+            "action": "speed_boost",
+            "amount": 8,
+            "duration_seconds": 12,
+        },
         {"trigger_role": "hazard", "action": "eliminate"},
         {"trigger_role": "landmark", "action": "award_win", "minimum_points": 3},
     ]

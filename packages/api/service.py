@@ -504,6 +504,7 @@ class Service:
         object_count: int,
         request_id: str,
         artifact_id: str,
+        artifact_sha256: str,
         remote_host: str,
     ) -> None:
         """Record a remote GLB build without retaining the scene recipe."""
@@ -512,6 +513,7 @@ class Service:
             or not 1 <= object_count <= 528
             or not request_id
             or not artifact_id
+            or not re.fullmatch(r"[0-9a-f]{64}", artifact_sha256)
             or not remote_host
         ):
             raise ValueError("Blender artifact audit details are invalid")
@@ -523,6 +525,7 @@ class Service:
             object_count=object_count,
             request_id=request_id,
             artifact_id=artifact_id,
+            artifact_sha256=artifact_sha256,
             remote_host=remote_host,
         )
         self._commit(credential, state)
@@ -631,6 +634,7 @@ class Service:
         navigation_connected: bool,
         validation_status: str,
         remote_host: str,
+        navigation_failed_leg: dict[str, object] | None = None,
     ) -> None:
         """Record bounded evidence from the fixed-harness remote Roblox runner."""
         try:
@@ -652,6 +656,43 @@ class Service:
             or not 0 <= navigation_waypoint_count <= 512
             or type(navigation_connected) is not bool
             or validation_status not in {"structure_only", "navigation_pass", "navigation_failed"}
+            or (
+                validation_status == "structure_only"
+                and (
+                    path_feature_count >= 2
+                    or navigation_waypoint_count != 0
+                    or navigation_connected
+                )
+            )
+            or (
+                validation_status == "navigation_pass"
+                and (
+                    path_feature_count < 2
+                    or not navigation_connected
+                    or navigation_waypoint_count < min(path_feature_count - 1, 512)
+                )
+            )
+            or (
+                validation_status == "navigation_failed"
+                and (path_feature_count < 2 or navigation_connected)
+            )
+            or (validation_status == "navigation_failed") != (navigation_failed_leg is not None)
+            or (
+                navigation_failed_leg is not None
+                and (
+                    not isinstance(navigation_failed_leg, dict)
+                    or set(navigation_failed_leg) != {"leg_index", "from", "to"}
+                    or type(navigation_failed_leg["leg_index"]) is not int
+                    or not 0 <= navigation_failed_leg["leg_index"] < path_feature_count - 1
+                    or navigation_waypoint_count < navigation_failed_leg["leg_index"]
+                    or (navigation_failed_leg["leg_index"] == 0 and navigation_waypoint_count != 0)
+                    or (navigation_failed_leg["leg_index"] > 0 and navigation_waypoint_count == 0)
+                    or not isinstance(navigation_failed_leg["from"], str)
+                    or not isinstance(navigation_failed_leg["to"], str)
+                    or len(navigation_failed_leg["from"]) > 64
+                    or len(navigation_failed_leg["to"]) > 64
+                )
+            )
             or not remote_host
             or len(remote_host) > 253
         ):
@@ -669,6 +710,7 @@ class Service:
             navigation_waypoint_count=navigation_waypoint_count,
             navigation_connected=navigation_connected,
             validation_status=validation_status,
+            navigation_failed_leg=navigation_failed_leg,
             remote_host=remote_host,
         )
         self._commit(credential, state)

@@ -20,6 +20,8 @@ const gamePlanGenerateButton = document.querySelector("#game-plan-generate-butto
 const gamePlanSpendConfirmed = document.querySelector("#game-plan-spend-confirmed");
 const usePlanWorldBriefButton = document.querySelector("#use-plan-world-brief");
 const downloadGamePlanButton = document.querySelector("#download-game-plan");
+const reviewReleaseReadinessButton = document.querySelector("#review-release-readiness");
+const downloadReleaseReadinessButton = document.querySelector("#download-release-readiness");
 const codePreviewDescription = document.querySelector("#code-preview-description");
 const codePreviewScope = document.querySelector("#code-preview-scope");
 const codePreviewQuoteButton = document.querySelector("#code-preview-quote-button");
@@ -79,6 +81,7 @@ let robloxMcpHealth = null;
 let mcpHealthPending = false;
 let currentRecipe = null;
 let currentArtifactId = null;
+let currentArtifactSha256 = null;
 let currentAssetUploadRequestId = null;
 let currentAssetUploadApprovalId = null;
 let currentRobloxModelAssetId = null;
@@ -91,6 +94,7 @@ let currentQuote = null;
 let currentStudioQuote = null;
 let currentGamePlanQuote = null;
 let currentGamePlan = null;
+let currentReleaseReadiness = null;
 let currentPlannedGameplayRules = null;
 let applyingGamePlanMapBrief = false;
 let currentCodePreviewQuote = null;
@@ -146,6 +150,8 @@ function setConnected(connected) {
   codePreviewGenerateButton.disabled = !connected || !codePreviewEnabled || codePreviewPending || !codeQuoteMatchesTask || !codePreviewSpendConfirmed.checked;
   usePlanWorldBriefButton.disabled = !connected || !currentGamePlan;
   downloadGamePlanButton.disabled = !currentGamePlan;
+  reviewReleaseReadinessButton.disabled = !connected || !currentGamePlan;
+  downloadReleaseReadinessButton.disabled = !currentReleaseReadiness;
   remoteBlenderReview.disabled = !connected || !blenderMcpEnabled || !currentRecipe;
   remoteBlenderApply.disabled = !connected || !blenderMcpEnabled || !currentRecipe || !remoteBlenderReview.checked;
   remoteBlenderDownload.disabled = !connected || !currentArtifactId;
@@ -621,6 +627,7 @@ disconnectButton.addEventListener("click", () => {
   robloxPlacePublishHealth = null;
   currentRecipe = null;
   currentArtifactId = null;
+  currentArtifactSha256 = null;
   currentAssetUploadRequestId = null;
   currentAssetUploadApprovalId = null;
   currentRobloxModelAssetId = null;
@@ -633,6 +640,7 @@ disconnectButton.addEventListener("click", () => {
   currentStudioQuote = null;
   currentGamePlanQuote = null;
   currentGamePlan = null;
+  currentReleaseReadiness = null;
   currentCodePreviewQuote = null;
   quotePending = false;
   studioQuotePending = false;
@@ -651,6 +659,7 @@ disconnectButton.addEventListener("click", () => {
   setNotice(codePreviewResult, "");
   document.querySelector("#code-preview-output").hidden = true;
   document.querySelector("#game-plan-output").hidden = true;
+  document.querySelector("#release-readiness-output").hidden = true;
   gamePlanSpendConfirmed.checked = false;
   codePreviewSpendConfirmed.checked = false;
   remoteBlenderDownload.hidden = true;
@@ -790,8 +799,10 @@ gamePlanBrief.addEventListener("input", () => {
   gamePlanQuotePending = false;
   currentGamePlanQuote = null;
   currentGamePlan = null;
+  currentReleaseReadiness = null;
   gamePlanSpendConfirmed.checked = false;
   document.querySelector("#game-plan-output").hidden = true;
+  document.querySelector("#release-readiness-output").hidden = true;
   setNotice(gamePlanQuoteResult, "Game idea changed. Request a fresh plan cost estimate before generation.");
   setNotice(gamePlanResult, "");
   setConnected(connectionState.textContent === "Connected");
@@ -836,7 +847,11 @@ gamePlanGenerateButton.addEventListener("click", async () => {
   gamePlanPending = true;
   gamePlanGenerateButton.textContent = "Planning…";
   gamePlanSpendConfirmed.checked = false;
+  currentGamePlan = null;
+  currentReleaseReadiness = null;
+  currentPlannedGameplayRules = null;
   document.querySelector("#game-plan-output").hidden = true;
+  document.querySelector("#release-readiness-output").hidden = true;
   setConnected(connectionState.textContent === "Connected");
   setNotice(gamePlanResult, "Creating a structured plan under the configured session budget.");
   try {
@@ -854,6 +869,8 @@ gamePlanGenerateButton.addEventListener("click", async () => {
       throw new Error(body?.error?.message || `Game planning failed (${response.status})`);
     }
     currentGamePlan = body;
+    currentReleaseReadiness = null;
+    document.querySelector("#release-readiness-output").hidden = true;
     currentPlannedGameplayRules = null;
     document.querySelector("#game-plan-json").textContent = JSON.stringify(body, null, 2);
     document.querySelector("#game-plan-output").hidden = false;
@@ -879,6 +896,39 @@ gamePlanGenerateButton.addEventListener("click", async () => {
     gamePlanGenerateButton.textContent = "Generate game plan";
     setConnected(connectionState.textContent === "Connected");
     await refreshStatus();
+  }
+});
+
+reviewReleaseReadinessButton.addEventListener("click", async () => {
+  if (!currentGamePlan || !operatorToken) return;
+  reviewReleaseReadinessButton.disabled = true;
+  reviewReleaseReadinessButton.textContent = "Reviewing…";
+  setNotice(gamePlanResult, "Checking the plan against required production evidence gates.");
+  try {
+    const response = await fetch("/v1/operator/release-readiness", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${operatorToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ plan: currentGamePlan }),
+      cache: "no-store",
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || body?.status !== "ok" || !body.report) {
+      throw new Error(body?.error?.message || `Release review failed (${response.status})`);
+    }
+    currentReleaseReadiness = body.report;
+    document.querySelector("#release-readiness-status").textContent = body.report.readiness.replaceAll("_", " ");
+    document.querySelector("#release-readiness-notice").textContent = body.report.notice;
+    document.querySelector("#release-readiness-json").textContent = JSON.stringify(body.report, null, 2);
+    document.querySelector("#release-readiness-output").hidden = false;
+    setNotice(gamePlanResult, `Release review created: ${body.report.pending_gate_count} gates are pending. No runtime or policy checks are claimed.`, "success");
+  } catch (error) {
+    setNotice(gamePlanResult, error.message, "error");
+  } finally {
+    reviewReleaseReadinessButton.textContent = "Review release gates";
+    setConnected(connectionState.textContent === "Connected");
   }
 });
 
@@ -924,6 +974,22 @@ downloadGamePlanButton.addEventListener("click", () => {
     .slice(0, 48) || "game-plan";
   anchor.href = url;
   anchor.download = `${stem}-plan.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+});
+
+downloadReleaseReadinessButton.addEventListener("click", () => {
+  if (!currentReleaseReadiness) return;
+  const json = `${JSON.stringify(currentReleaseReadiness, null, 2)}\n`;
+  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  const anchor = document.createElement("a");
+  const stem = String(currentReleaseReadiness.plan_title || "game-plan")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48) || "game-plan";
+  anchor.href = url;
+  anchor.download = `${stem}-release-readiness.json`;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 });
@@ -1038,6 +1104,7 @@ generateButton.addEventListener("click", async () => {
     const recipe = JSON.stringify(body, null, 2);
     currentRecipe = body;
     currentArtifactId = null;
+    currentArtifactSha256 = null;
     currentAssetUploadRequestId = null;
     currentAssetUploadApprovalId = null;
     currentRobloxModelAssetId = null;
@@ -1224,9 +1291,13 @@ remoteRobloxValidate.addEventListener("click", async () => {
       body: JSON.stringify({ recipe: currentRecipe, request_id: currentRobloxRequestId }),
     });
     const receipt = result.validation;
+    const failedLeg = receipt.navigation_failed_leg;
+    const routeDiagnostic = failedLeg
+      ? ` First failed segment: ${failedLeg.leg_index + 1}, “${failedLeg.from}” to “${failedLeg.to}”.`
+      : "";
     setNotice(
       remoteRobloxResult,
-      `Validation ${receipt.validation_status} · ${receipt.object_count} objects · ${receipt.path_feature_count} path features · ${receipt.navigation_waypoint_count} waypoints · place version ${receipt.place_version} · task ${receipt.task_id}.`,
+      `Validation ${receipt.validation_status} · ${receipt.object_count} objects · ${receipt.path_feature_count} path features · ${receipt.navigation_waypoint_count} waypoints${routeDiagnostic} · place version ${receipt.place_version} · task ${receipt.task_id}.`,
       receipt.validation_status === "navigation_failed" ? "error" : "success",
     );
     remoteRobloxReview.checked = false;
@@ -1375,6 +1446,7 @@ remoteBlenderApply.addEventListener("click", async () => {
   if (!window.confirm("Build this reviewed scene as a GLB on the configured remote Blender service?")) return;
   remoteBlenderApply.disabled = true;
   currentArtifactId = null;
+  currentArtifactSha256 = null;
   currentAssetUploadRequestId = null;
   currentAssetUploadApprovalId = null;
   currentRobloxModelAssetId = null;
@@ -1392,10 +1464,11 @@ remoteBlenderApply.addEventListener("click", async () => {
     });
     setNotice(
       remoteBlenderResult,
-      `Built a GLB with ${result.object_count} scene objects for “${result.recipe_name}”. The approved Roblox Model can be added directly to a remote place build.`,
+      `Built a GLB with ${result.object_count} scene objects for “${result.recipe_name}”. Download and verify it before using an available Studio MCP asset-upload flow.`,
       "success",
     );
     currentArtifactId = result.artifact_id;
+    currentArtifactSha256 = result.artifact_sha256;
     // The artifact UUID is the durable upload request ID: a retry or page
     // recovery cannot accidentally create a second Roblox asset for this GLB.
     currentAssetUploadRequestId = result.artifact_id;
@@ -1429,6 +1502,16 @@ remoteBlenderDownload.addEventListener("click", async () => {
       throw new Error(`Artifact download failed (${response.status}).`);
     }
     const blob = await response.blob();
+    if (!currentArtifactSha256 || !/^[0-9a-f]{64}$/.test(currentArtifactSha256)) {
+      throw new Error("The Blender artifact receipt does not include a valid SHA-256 digest.");
+    }
+    const actualDigest = Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())),
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+    if (actualDigest !== currentArtifactSha256) {
+      throw new Error("Downloaded GLB failed SHA-256 verification; no file was offered.");
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1437,7 +1520,11 @@ remoteBlenderDownload.addEventListener("click", async () => {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice(remoteBlenderResult, "GLB downloaded. Remote Roblox Model upload is available above when configured.", "success");
+    setNotice(
+      remoteBlenderResult,
+      `GLB downloaded and SHA-256 verified (${actualDigest.slice(0, 12)}…).`,
+      "success",
+    );
   } catch (error) {
     setNotice(remoteBlenderResult, error.message, "error");
   } finally {
@@ -1577,12 +1664,14 @@ window.addEventListener("pagehide", () => {
   blenderMcpEnabled = false;
   currentRecipe = null;
   currentArtifactId = null;
+  currentArtifactSha256 = null;
   currentBlenderRequestId = null;
   currentStudioRecipeRequestId = null;
   currentQuote = null;
   currentStudioQuote = null;
   currentGamePlanQuote = null;
   currentGamePlan = null;
+  currentReleaseReadiness = null;
   studioActionQuoteEnabled = false;
   gamePlanQuotePending = false;
   gamePlanPending = false;

@@ -5,6 +5,12 @@
     "amount": 1
   },
   {
+    "trigger_role": "collectible",
+    "action": "speed_boost",
+    "amount": 8,
+    "duration_seconds": 12
+  },
+  {
     "trigger_role": "hazard",
     "action": "eliminate"
   },

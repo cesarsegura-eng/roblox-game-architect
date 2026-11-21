@@ -8,7 +8,7 @@ COPY pyproject.toml README.md LICENSE ./
 COPY packages ./packages
 COPY apps ./apps
 COPY --from=rojo-builder /usr/local/cargo/bin/rojo /usr/local/bin/rojo
-RUN python -m pip install --no-cache-dir . \
+RUN python -m pip install --no-cache-dir ".[roblox-assets]" \
     && mkdir -p /var/lib/rga \
     && groupadd --system --gid 10002 rga \
     && useradd --system --uid 10002 --gid 10002 --home-dir /var/lib/rga rga \

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 from .spatial import (
     PATH_SEGMENT_MAX_GAP,
@@ -29,12 +30,16 @@ class WorldEvaluationCase:
     minimum_lights: int
     required_role_counts: tuple[tuple[str, int], ...] = ()
     required_character_motions: tuple[str, ...] = ()
+    required_character_silhouettes: tuple[str, ...] = ()
     required_light_types: tuple[str, ...] = ()
     required_lights_near_roles: tuple[tuple[str, str, float], ...] = ()
     required_role_proximities: tuple[tuple[str, str, float], ...] = ()
+    required_role_coverage: tuple[tuple[str, str, float], ...] = ()
+    required_role_distribution: tuple[tuple[str, str, float, int], ...] = ()
     minimum_path_aspect_ratio: float | None = None
     minimum_connected_path_segments: int = 1
     path_segment_max_gap: float = PATH_SEGMENT_MAX_GAP
+    require_ordered_path: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +74,7 @@ WORLD_EVALUATION_CASES = (
         minimum_path_aspect_ratio=2.0,
         minimum_connected_path_segments=3,
         path_segment_max_gap=1.0,
+        require_ordered_path=True,
     ),
     WorldEvaluationCase(
         case_id="rainforest-trail",
@@ -101,9 +107,12 @@ WORLD_EVALUATION_CASES = (
             ("path", "hazard", 4.0),
             ("path", "landmark", 6.0),
         ),
+        required_role_coverage=(("collectible", "path", 2.0),),
+        required_role_distribution=(("collectible", "path", 2.0, 3),),
         minimum_path_aspect_ratio=2.0,
         minimum_connected_path_segments=3,
         path_segment_max_gap=1.0,
+        require_ordered_path=True,
     ),
     WorldEvaluationCase(
         case_id="desert-courtyard-home",
@@ -215,6 +224,44 @@ WORLD_EVALUATION_CASES = (
         minimum_path_aspect_ratio=2.0,
     ),
     WorldEvaluationCase(
+        case_id="volcanic-cave-crossing",
+        brief=(
+            "Build a traversable volcanic basalt route from a readable exterior approach through "
+            "a framed cave opening with a high basalt lintel that leaves clear player-sized "
+            "passage, "
+            "leading into a separate interior chamber. Use two connected path segments, "
+            "weathered rock and sparse pioneer plants near the mouth, a mineral chamber "
+            "landmark, and a warm point light inside. Keep the threshold and route clear."
+        ),
+        required_skills=("world-environments", "blender-scene-authoring"),
+        required_roles=(
+            "terrain",
+            "exterior",
+            "entry",
+            "opening",
+            "interior",
+            "path",
+            "rock",
+            "vegetation",
+            "landmark",
+        ),
+        minimum_objects=14,
+        required_role_counts=(("rock", 3), ("opening", 1)),
+        minimum_lights=2,
+        required_light_types=("SUN", "POINT"),
+        required_lights_near_roles=(("POINT", "interior", 8.0),),
+        required_role_proximities=(
+            ("exterior", "entry", 8.0),
+            ("entry", "opening", 5.0),
+            ("opening", "interior", 7.0),
+            ("interior", "landmark", 8.0),
+        ),
+        minimum_path_aspect_ratio=2.0,
+        minimum_connected_path_segments=2,
+        path_segment_max_gap=1.0,
+        require_ordered_path=True,
+    ),
+    WorldEvaluationCase(
         case_id="guard-walk-cycle",
         brief=(
             "Crea un guardia NPC con anatomía estilizada y un esqueleto genérico para un "
@@ -230,6 +277,7 @@ WORLD_EVALUATION_CASES = (
         minimum_objects=0,
         minimum_lights=0,
         required_character_motions=("WALK", "RUN", "JUMP"),
+        required_character_silhouettes=("heroic", "slender", "round"),
     ),
 )
 
@@ -245,6 +293,7 @@ def assess_world_result(
         for role, _minimum in case.required_role_counts
     }
     present_motions = {item.motion for item in recipe.characters}
+    present_silhouettes = {item.silhouette for item in recipe.characters}
     present_light_types = {item.type for item in recipe.lights}
     environment = recipe.environment
     missing_light_coverage = []
@@ -285,6 +334,31 @@ def assess_world_result(
             distant_role_pairs.append(
                 f"{first_role}/{second_role} ({closest:.1f}; max {max_distance:g})"
             )
+    uncovered_role_objects = []
+    for source_role, target_role, max_distance in case.required_role_coverage:
+        targets = [object_bounds(item) for item in recipe.objects if item.role == target_role]
+        for item in (obj for obj in recipe.objects if obj.role == source_role):
+            if not any(
+                bounds_distance(object_bounds(item), target) <= max_distance for target in targets
+            ):
+                uncovered_role_objects.append(
+                    f"{item.name} ({source_role} not within {max_distance:g} of {target_role})"
+                )
+    underdistributed_roles = []
+    for (
+        source_role,
+        target_role,
+        max_distance,
+        minimum_distinct_targets,
+    ) in case.required_role_distribution:
+        sources = [item for item in recipe.objects if item.role == source_role]
+        targets = [item for item in recipe.objects if item.role == target_role]
+        covered_targets = _maximum_distinct_target_coverage(sources, targets, max_distance)
+        if covered_targets < minimum_distinct_targets:
+            underdistributed_roles.append(
+                f"{source_role}/{target_role} ({covered_targets} distinct targets; "
+                f"minimum {minimum_distinct_targets})"
+            )
     elongated_path = any(
         item.role == "path"
         and _horizontal_aspect_ratio(item) >= (case.minimum_path_aspect_ratio or 0)
@@ -298,6 +372,11 @@ def assess_world_result(
         case.minimum_path_aspect_ratio is None
         or largest_path_component >= case.minimum_connected_path_segments
     )
+    path_order_gaps = [
+        (first.name, second.name, bounds_distance(object_bounds(first), object_bounds(second)))
+        for first, second in pairwise(path_objects)
+        if bounds_distance(object_bounds(first), object_bounds(second)) > case.path_segment_max_gap
+    ]
     checks = (
         EvaluationCheck(
             "required_skills",
@@ -360,6 +439,20 @@ def assess_world_result(
             else "spatially disconnected: " + ", ".join(distant_role_pairs),
         ),
         EvaluationCheck(
+            "required_role_coverage",
+            not uncovered_role_objects,
+            "every required object is placed near its supporting role"
+            if not uncovered_role_objects
+            else "uncovered: " + ", ".join(uncovered_role_objects),
+        ),
+        EvaluationCheck(
+            "required_role_distribution",
+            not underdistributed_roles,
+            "objects are distributed across distinct supporting features"
+            if not underdistributed_roles
+            else "underdistributed: " + ", ".join(underdistributed_roles),
+        ),
+        EvaluationCheck(
             "playable_path_shape",
             case.minimum_path_aspect_ratio is None or elongated_path,
             "a route feature has a readable elongated footprint"
@@ -384,12 +477,31 @@ def assess_world_result(
             ),
         ),
         EvaluationCheck(
+            "ordered_route_sequence",
+            not case.require_ordered_path or not path_order_gaps,
+            "consecutive route segments connect in recipe order"
+            if not case.require_ordered_path or not path_order_gaps
+            else "ordered route has gaps: "
+            + ", ".join(
+                f"{first} -> {second} ({gap:.1f}; max {case.path_segment_max_gap:g})"
+                for first, second, gap in path_order_gaps
+            ),
+        ),
+        EvaluationCheck(
             "character_motions",
             set(case.required_character_motions) <= present_motions,
             "all requested motion presets are present"
             if set(case.required_character_motions) <= present_motions
             else "missing motions: "
             + ", ".join(sorted(set(case.required_character_motions) - present_motions)),
+        ),
+        EvaluationCheck(
+            "character_silhouettes",
+            set(case.required_character_silhouettes) <= present_silhouettes,
+            "all requested silhouette presets are present"
+            if set(case.required_character_silhouettes) <= present_silhouettes
+            else "missing silhouettes: "
+            + ", ".join(sorted(set(case.required_character_silhouettes) - present_silhouettes)),
         ),
     )
     return WorldEvaluationResult(
@@ -413,3 +525,37 @@ def _horizontal_aspect_ratio(item: SceneObject) -> float:
         horizontal = [item.scale[0], item.scale[1]]
     shorter = min(horizontal)
     return max(horizontal) / shorter if shorter > 0 else 0.0
+
+
+def _maximum_distinct_target_coverage(
+    sources: list[SceneObject], targets: list[SceneObject], max_distance: float
+) -> int:
+    """Count the largest one-to-one assignment of sources to nearby targets."""
+    target_bounds = [object_bounds(target) for target in targets]
+    nearby_targets = []
+    for source in sources:
+        source_bounds = object_bounds(source)
+        nearby_targets.append(
+            [
+                index
+                for index, bounds in enumerate(target_bounds)
+                if bounds_distance(source_bounds, bounds) <= max_distance
+            ]
+        )
+
+    assigned_sources: dict[int, int] = {}
+
+    def assign(source_index: int, visited_targets: set[int]) -> bool:
+        for target_index in nearby_targets[source_index]:
+            if target_index in visited_targets:
+                continue
+            visited_targets.add(target_index)
+            previous_source = assigned_sources.get(target_index)
+            if previous_source is None or assign(previous_source, visited_targets):
+                assigned_sources[target_index] = source_index
+                return True
+        return False
+
+    for source_index in range(len(sources)):
+        assign(source_index, set())
+    return len(assigned_sources)

@@ -10,56 +10,107 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "packages" / "core" / "skillpacks"
 DESTINATION = ROOT / "skills"
+CLAUDE_PLUGIN_DESTINATION = ROOT / "apps" / "claude-code-plugin" / "skills"
+DESTINATIONS = (DESTINATION, CLAUDE_PLUGIN_DESTINATION)
+CANONICAL_SKILL_RESOURCES = {
+    "blender-scene-authoring": {
+        Path("references/scene-recipe-v3.schema.json"): ROOT
+        / "packages"
+        / "core"
+        / "schemas"
+        / "scene-recipe-v3.schema.json",
+        Path("references/research-sources.md"): ROOT
+        / "docs"
+        / "art-direction"
+        / "research-sources.md",
+    },
+    "game-design-planning": {
+        Path("references/game-plan-v2.schema.json"): ROOT
+        / "packages"
+        / "core"
+        / "schemas"
+        / "game-plan-v2.schema.json",
+        Path("references/research-sources.md"): ROOT
+        / "docs"
+        / "art-direction"
+        / "research-sources.md",
+    },
+    "world-environments": {
+        Path("references/research-sources.md"): ROOT
+        / "docs"
+        / "art-direction"
+        / "research-sources.md",
+    },
+    "character-modeling-animation": {
+        Path("references/research-sources.md"): ROOT
+        / "docs"
+        / "art-direction"
+        / "research-sources.md",
+    },
+}
 
 
-def _markdown_files(folder: Path) -> dict[Path, bytes]:
+def _skill_files(folder: Path) -> dict[Path, bytes]:
     return {
         path.relative_to(folder): path.read_bytes()
-        for path in folder.rglob("*.md")
+        for suffix in ("*.md", "*.json")
+        for path in folder.rglob(suffix)
         if path.is_file()
     }
+
+
+def _expected_skill_files(source_folder: Path) -> dict[Path, bytes]:
+    files = _skill_files(source_folder)
+    for relative, source in CANONICAL_SKILL_RESOURCES.get(source_folder.name, {}).items():
+        files[relative] = source.read_bytes()
+    return files
 
 
 def synchronize(*, check: bool) -> bool:
     valid = True
     for source_folder in sorted(path for path in SOURCE.iterdir() if path.is_dir()):
-        destination_folder = DESTINATION / source_folder.name
-        expected = _markdown_files(source_folder)
-        actual = _markdown_files(destination_folder) if destination_folder.is_dir() else {}
-        if check:
-            if expected != actual:
-                missing = sorted(str(path) for path in expected.keys() - actual.keys())
-                extra = sorted(str(path) for path in actual.keys() - expected.keys())
-                changed = sorted(
-                    str(path)
-                    for path in expected.keys() & actual.keys()
-                    if expected[path] != actual[path]
-                )
-                print(
-                    f"{source_folder.name}: packaged skill drift "
-                    f"(missing={missing}, extra={extra}, changed={changed})",
-                    file=sys.stderr,
-                )
-                valid = False
-            continue
-        destination_folder.mkdir(parents=True, exist_ok=True)
-        for relative, content in expected.items():
-            output = destination_folder / relative
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_bytes(content)
+        expected = _expected_skill_files(source_folder)
+        for root in DESTINATIONS:
+            destination_folder = root / source_folder.name
+            actual = _skill_files(destination_folder) if destination_folder.is_dir() else {}
+            if check:
+                if expected != actual:
+                    missing = sorted(str(path) for path in expected.keys() - actual.keys())
+                    extra = sorted(str(path) for path in actual.keys() - expected.keys())
+                    changed = sorted(
+                        str(path)
+                        for path in expected.keys() & actual.keys()
+                        if expected[path] != actual[path]
+                    )
+                    print(
+                        f"{destination_folder.relative_to(ROOT)}: skill drift "
+                        f"(missing={missing}, extra={extra}, changed={changed})",
+                        file=sys.stderr,
+                    )
+                    valid = False
+                continue
+            destination_folder.mkdir(parents=True, exist_ok=True)
+            for relative, content in expected.items():
+                output = destination_folder / relative
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_bytes(content)
     return valid
 
 
 def create_archive(path: Path) -> None:
-    """Write a reproducible ZIP of the portable, agent-neutral SKILL.md files."""
+    """Write a reproducible ZIP of skills and their portable reference resources."""
     path = path.resolve()
     if path.is_relative_to(DESTINATION.resolve()):
         raise ValueError("archive path must be outside the skills source directory")
     path.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(path, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
-        for skill_file in sorted(DESTINATION.rglob("*.md")):
-            if not skill_file.is_file():
-                continue
+        skill_files = sorted(
+            path
+            for suffix in ("*.md", "*.json")
+            for path in DESTINATION.rglob(suffix)
+            if path.is_file()
+        )
+        for skill_file in skill_files:
             relative = skill_file.relative_to(DESTINATION.parent).as_posix()
             entry = ZipInfo(relative, date_time=(2026, 1, 1, 0, 0, 0))
             entry.compress_type = ZIP_DEFLATED

@@ -1,9 +1,9 @@
 # Roblox Game Architect
 
 An open source AI system that designs, builds, tests and improves Roblox games
-through separately hosted MCP services. Blender and the build tooling are
-server-side capabilities; the user needs only Roblox Studio, where the game is
-made, and no other program.
+by equipping the user's existing agent with domain skills and remote Blender
+authoring tools. Roblox Studio work uses the native MCP connection the user
+already has configured; a separate RGA Roblox artifact service is optional.
 
 > **Status: pre-alpha. It does not yet build a game end to end.**
 >
@@ -14,27 +14,36 @@ made, and no other program.
 >   optional Anthropic provider, and spend and iteration guards;
 > - a static Luau gate for scoped, script-free scene blockouts, built on the
 >   pinned official Lute 1.0.0 parser;
-> - separately hosted Blender and Roblox MCP services that turn reviewed recipes
->   into GLB and place files, plus a local operator panel and a Studio plugin
->   that applies reviewed, script-free actions.
+> - a separately hosted Blender MCP service that turns reviewed recipes into
+>   GLB assets, plus an optional RGA Roblox artifact service for deployments
+>   that already expose it; neither replaces the user's native Studio MCP.
 >
-> What does not exist yet: execution of model-written gameplay Luau (it stays
-> blocked), evidence from an isolated runtime, and a verified live end-to-end
-> playtest. The remote services have been tested locally, not against live
+> What does not exist yet: general model-written gameplay execution in RGA's
+> own service path (it stays blocked), verification against a separately
+> published Open Cloud test universe, and a verified live end-to-end playtest.
+> Local unpublished `.rbxlx` files can be tested in Studio without that cloud
+> universe; a local one-player Studio Play Solo check has
+> verified the fixed rainforest rules script and the Obby checkpoint, finish,
+> hazard, respawn, and four-leg PathfindingService route; these do not establish
+> manual walking/control playability, live-service behavior, or production
+> readiness. Remote services have been tested locally, not against live
 > infrastructure.
 >
-> The end user needs **Roblox Studio**, where the game is made, and no other
-> program. See [the status page](docs/status.md), [the roadmap](#roadmap) and the
+> The user needs an existing compatible agent to use RGA skills, remote Blender
+> MCP, and the existing Roblox Studio MCP. No RGA-specific software is required
+> on the user's computer. See [the status page](docs/status.md), [the roadmap](#roadmap) and the
 > [runbook that turns written into verified](docs/runbook-live-verification.md).
 
 ## What it is meant to do
 
-The primary product is a set of dedicated skills and remote MCP tools for the
-user's existing agent. That agent plans the game and calls separately hosted
-Blender and Roblox services to build scene assets, place artifacts, and fixed-
-harness map checks. No authoring software or RGA MCP host is required on the
-user's computer. The local web operator panel, Studio plugin, and Blender
-extension are optional development, compatibility, and inspection paths.
+The primary product is dedicated skills plus remote Blender authoring tools for
+the user's existing agent. Direct Roblox creation and editing use the Roblox
+Studio session and native MCP the user already has configured; the Claude Code
+plugin does not add a second Roblox MCP connection. A separate RGA Roblox
+service can build recipe artifacts and run fixed checks for compatible agent
+deployments that already expose it. The workflow adds no local Blender install,
+RGA MCP host, or RGA Studio plugin on the user's computer. The local web
+operator panel and Blender extension are optional development paths.
 
 The core also contains early planning, world generation, and constrained Luau
 validation components. General model-authored gameplay execution and a full
@@ -42,56 +51,70 @@ end-to-end playtest loop are not implemented. Place builds can select
 repository-owned templates or bounded data-only touch rules interpreted by one
 fixed server script; arbitrary generated code remains unsupported.
 
-The repository also provides six portable agent skills in [`skills/`](skills/):
+The repository also provides nine portable agent skills in [`skills/`](skills/):
 one end-to-end Roblox Game Architect skill and dedicated skills for game design,
-biome/world design, Blender scene authoring, Roblox map blockouts, and character
-modeling/animation. They give an existing agent domain knowledge and route it to
-the separately hosted MCP tools. See the
+server gameplay engineering, UI/UX, biome/world design, native Roblox Terrain,
+Blender scene authoring, Roblox map blockouts, and character modeling/animation.
+They give an existing agent domain knowledge and route it to the user's already
+available tools. See the
 [Codex agent and remote MCP setup](docs/integrations/roblox-game-architect-codex.md).
 The skills also package for other skill-compatible agents; see the
 [agent-neutral skill distribution guide](docs/integrations/agent-skills.md).
-Installing those skill instructions does not install Blender or an MCP server
-on the user's computer. The user does need Roblox Studio, because that is where
-the game is made and played; nothing else should be required.
+For Claude Code, the [integration guide](docs/integrations/claude-code.md)
+adds remote Blender authoring and uses the existing native Studio connection
+for Roblox work; it does not add another Roblox MCP endpoint. Installing those
+skill instructions does not install Blender or an MCP server on the user's
+computer. Studio is used directly through the user's existing native tools.
 
 ## The user's path
 
-The intended path needs one program on the user's computer, Roblox Studio:
+The intended Claude Code path uses the agent's existing tools plus remote
+Blender authoring:
 
-1. Install Roblox Studio (the user already has it if they make Roblox games).
-2. Give your agent the project's skills and connect it to the hosted MCP
-   services; no local server is involved.
-3. Ask the agent for a game. It plans, builds through the remote tools, and
-   returns a reviewable place file (`.rbxlx`) with its SHA-256 digest.
-4. Open that file in Roblox Studio to inspect, edit and play it.
+1. Give the agent the project skills and configure the RGA Blender MCP; leave
+   the native Roblox Studio MCP unchanged.
+2. Ask for a game. The agent plans, creates 3D assets remotely, and uses the
+   native Studio tools for supported work in the open place.
+3. The separate RGA Roblox artifact service is optional and is not configured
+   by the Claude plugin.
 
-Steps 2 and 3 are written and tested against local stand-ins, not against live
-hosted services; see [the status page](docs/status.md). The Studio plugin and
-the local operator panel are optional compatibility paths, not part of this path.
+No Blender, RGA plugin, RGA application, or local RGA service is required on
+the user's computer. Direct Studio work depends on the user's existing Studio
+setup and the tools it exposes.
+
+The combined remote Blender and native Studio workflow has not yet been
+verified end to end against hosted services; see [the status page](docs/status.md).
+The optional RGA Studio plugin and local operator panel are compatibility
+paths, not part of this path.
 
 ## What it is explicitly not
 
 - It does **not** publish to production. An optional publisher can update only
   a configured disposable test place after the user inspects and explicitly
   approves the exact artifact; production targets are denied.
-- Model-authored Luau is not executed. Fixed repository-owned template scripts
-  may be included only through their explicitly selected, validated modes.
-  General gameplay code still needs a static policy and isolated runtime gate;
-  see [`docs/safety.md`](docs/safety.md).
-- It does **not** hold your Roblox credentials. The plugin uses the API only in
-  the optional local Studio compatibility workflow. In the remote agent
-  workflow, service credentials stay on the separately hosted MCP/API services;
-  end users do not need a local API process.
+- RGA's remote builder does not execute model-authored Luau. Fixed
+  repository-owned template scripts may be included only through their
+  explicitly selected, validated modes. The user's native Studio MCP may
+  support direct script edits and execution in the open place, outside RGA's
+  sandbox; verify the target and use its test safeguards. General gameplay code
+  in RGA still needs a static policy and isolated runtime gate; see
+  [`docs/safety.md`](docs/safety.md).
+- It does **not** hold your Roblox credentials. The optional RGA Studio plugin
+  uses the API only in the local Studio compatibility workflow. The Claude Code
+  plugin adds RGA skills and the remote Blender MCP only; Claude's existing
+  native Studio connection remains independently configured. End users do not
+  need a local API process.
 
 ## Architecture at a glance
 
 ```text
 existing agent + portable skills
             │ authenticated Streamable HTTP
-            ├── remote Blender MCP ── Blender worker ── GLB artifacts
-            └── remote Roblox MCP ─── build / validate ── place artifacts
-                         │
-                         └── hosted RGA API (optional orchestration/review)
+            ├── remote Blender MCP ── Blender worker ── signed GLB handoff
+            │                                               │ model data only
+            └── existing native Roblox Studio MCP ──────────┴─ user's open place
+
+optional separate service: RGA Roblox MCP ── recipe artifacts / fixed checks
 
 optional contributor tools: local operator UI, Studio plugin, Blender extension
 ```
@@ -103,17 +126,20 @@ truth for every message crossing the Python/Luau boundary.
 Read [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full picture and
 [`docs/architecture/adr/`](docs/architecture/adr/) for why each decision was made.
 
-To host both MCP services on a separate Linux server behind one HTTPS reverse
-proxy, follow the [remote Compose deployment guide](apps/remote/deploy/README.md).
-That server-side setup is infrastructure for the agent connection; it does not
-add a Blender, Roblox Studio, or RGA service installation to the user's PC.
+For the intended Claude workflow, configure the hosted Blender MCP and keep the
+user's native Roblox Studio MCP unchanged. If a compatible agent deployment
+already exposes the optional RGA Roblox artifact service, it can be hosted
+alongside Blender using the [remote Compose deployment guide](apps/remote/deploy/README.md).
+That server-side setup does not install Blender, Roblox Studio, or an RGA
+service on the user's PC.
 
 ## Development and service requirements
 
 These are requirements for contributors and the separately hosted services, not
-for the end user. The end user needs Roblox Studio and nothing else: the product
-must not ask them to install Blender, a converter, a local server or any other
-program. Python and uv are all the standard test suite needs; the
+for the end user. The end user uses an agent they already run; Studio is needed
+only to inspect, edit, or play an artifact locally. The product must not ask
+them to install Blender, a converter, a local server or RGA-specific software.
+Python and uv are all the standard test suite needs; the
 other rows apply only to the service or optional development workflow.
 
 | Tool | Version | Needed for | Needed now? |
@@ -122,17 +148,18 @@ other rows apply only to the service or optional development workflow.
 | uv | 0.9+ | dependency management ([CONTRIBUTING](CONTRIBUTING.md)) | **yes** |
 | rokit | 1+ | installs the pinned Lute 1.0.0 and the Luau toolchain | **contributors only**: the real-Lute integration test, or building the plugin as a model or a local `.rbxlx`. Not for end users: the plugin installs as one file |
 | Blender | 5.2.3 on the MCP host | builds reviewed scene recipes and exports GLB through the remote Blender service | **no local install**; server deployment only. Local extension authoring is optional |
-| Roblox Studio | current | **end user**: where the game is made and played; opens the generated place file; hosts the optional RGA plugin | **yes, for the end user** (the only program they install); not needed to run the test suite |
+| Roblox Studio | current | the user's existing native MCP target for direct place work; can also open generated place files | no RGA plugin or RGA-specific Studio install is required |
 | Node.js | 20+ | optional future web build tooling | no, the local operator panel is served by Python |
 
 ## Contributor setup (not required for end users)
 
 The repository includes a runnable operator API and separately deployable
 Blender and Roblox MCP services. In the intended user workflow, the user's
-computer needs no 3D or game-authoring application: the API connects to the
-remote services, which hold and run those tools. The Studio plugin and Blender
-extension are optional compatibility and development tools. Roblox Studio may
-be used to inspect an artifact, but it is not the remote execution backend. The
+computer needs no RGA-specific authoring application: Blender runs remotely,
+and the agent reuses the user's existing native Studio MCP for direct place
+work. The Studio plugin and Blender extension are optional compatibility and
+development tools. The native Studio connection is distinct from remote RGA
+artifact generation and validation. The
 complete game-building engine is not ready: static Luau validation currently
 covers only a restricted, script-free scene-construction subset. The bounded
 Luau agent loop is available as a quoted, read-only source preview when pinned
@@ -146,10 +173,13 @@ adds one fixed interpreter script. This does not publish or
 merge into an existing place, and the remote map harness does not playtest that
 script. See
 [remote application integration boundaries](docs/integrations/remote-application-architecture.md)
-for the remote Blender and Roblox MCP services and the optional local Studio
-plugin. The Roblox Studio MCP server itself uses local `stdio`; it is not the
-project's remote MCP route. No remote service credentials or Roblox test place
-are configured in this checkout.
+for the remote Blender and Roblox MCP services and the optional RGA Studio
+plugin. Claude Code's native Roblox Studio MCP connection is managed separately
+from RGA's remotely hosted MCP routes; this project neither creates nor replaces
+that connection. No hosted remote-service credentials or published Open Cloud
+test place are configured in this checkout. The runbook includes a command to
+generate a separate unpublished Studio test file without adding a Roblox MCP
+endpoint.
 
 ```bash
 git clone https://github.com/cesarsegura-eng/roblox-game-architect.git
@@ -204,13 +234,13 @@ as live until its external service and runtime evidence are available.
 |---|---|---|
 | 0 | Architecture decisions, safety model | written |
 | 1 | Repository hygiene, CI, governance | written; this tree has not run in hosted CI |
-| 2 | `packages/protocol` — versioned schema | written; Python tests pass; Luau conformance not verified |
+| 2 | `packages/protocol` — versioned schema | Python and Luau parser/schema vectors pass locally; hosted CI and installed Studio runtime remain unverified |
 | 3 | `packages/core` — LLM foundation, agents, run guards | in progress |
-| 4 | First vertical slice: generate → validate → run → report | in progress; generated source stays blocked; no live runtime evidence |
-| 5 | 3D authoring and Studio clients | in progress; remote services tested locally only |
+| 4 | First vertical slice: generate → validate → run → report | in progress; fixed rainforest gameplay passed a one-player Studio engine-driver check; walking-route, isolated-place, and live end-to-end verification remain |
+| 5 | 3D authoring and Studio clients | in progress; a signed Blender artifact handoff supports the existing native Studio Open Cloud upload path; hosted MCP services and live Roblox asset/rendering checks remain |
 | 6 | Web application (local operator panel) | in progress |
 | 7 | Agent evaluation suite with fixed cases | in progress; offline cases only |
-| 8 | Existing-agent delivery: domain skills + remote MCP tools | in progress; no live hosted connection verified |
+| 8 | Existing-agent delivery: domain skills + remote MCP tools | in progress; portable skills, a Claude Code plugin/marketplace package, and remote Blender authoring with a signed artifact handoff exist; live hosted MCP endpoints are not configured or verified |
 
 The per-stage detail, with every verified and unverified claim, is in
 [`docs/status.md`](docs/status.md).

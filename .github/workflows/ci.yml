@@ -66,7 +66,7 @@ jobs:
         # must fail the build.
         run: uv run python -m pytest
 
-      - name: Build and audit Roblox MCP wheel resources
+      - name: Build and audit deployed service resources in wheel
         run: |
           uv build --wheel --out-dir dist
           uv run python tools/check_wheel_resources.py dist/*.whl
@@ -80,7 +80,7 @@ jobs:
       - name: Check for Luau source
         id: check
         run: |
-          if [ -n "$(find apps/studio-plugin/src -name '*.lua' -o -name '*.luau' 2>/dev/null)" ]; then
+          if [ -n "$(find apps/studio-plugin/src -type f \( -name '*.lua' -o -name '*.luau' \) 2>/dev/null)" ] || [ -f tools/studio_rainforest_obby.luau ] || [ -f tools/studio_rainforest_obby_multiplayer.luau ] || [ -f tools/studio_treasure_hunt.luau ] || [ -f tools/studio_rule_game_speed_boost.luau ] || [ -f tools/studio_rule_game_round_reset.luau ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
@@ -91,20 +91,24 @@ jobs:
       # drop-in and reads the existing aftman.toml (see that file's header).
       - uses: CompeyDev/setup-rokit@v0.2.1
         if: steps.check.outputs.found == 'true'
+        with:
+          version: v1.2.0
 
-      - name: Generate the Roblox standard library
-        # selene does not ship it; see selene.toml. Explicit step so a fetch
-        # failure is legible instead of surfacing as a lint error.
+      - name: Verify the pinned Roblox standard library
+        # Generated from the Roblox API dump and reviewed in roblox.yml.
         if: steps.check.outputs.found == 'true'
-        run: selene update-roblox-std
+        run: test -s roblox.yml
 
       - name: Lint
         if: steps.check.outputs.found == 'true'
-        run: selene apps/studio-plugin/src
+        run: selene apps/studio-plugin/src tools/studio_rainforest_obby.luau tools/studio_rainforest_obby_multiplayer.luau tools/studio_treasure_hunt.luau tools/studio_rule_game_speed_boost.luau tools/studio_rule_game_round_reset.luau
 
       - name: Format check
         if: steps.check.outputs.found == 'true'
-        run: stylua --check apps/studio-plugin/src
+        # Schemas.lua is generated from the protocol JSON contract and verified
+        # byte-for-byte by package_luau_protocol_schemas.py; keep generated
+        # formatting out of StyLua's authored-source check.
+        run: stylua --check apps/studio-plugin/src/Main.plugin.lua apps/studio-plugin/src/Protocol/StrictJson.lua apps/studio-plugin/src/Protocol/SchemaValidator.lua tools/studio_rainforest_obby.luau tools/studio_rainforest_obby_multiplayer.luau tools/studio_treasure_hunt.luau tools/studio_rule_game_speed_boost.luau tools/studio_rule_game_round_reset.luau
 
       - name: Build installable Studio plugin
         if: steps.check.outputs.found == 'true'
@@ -127,9 +131,17 @@ jobs:
           enable-cache: true
 
       - uses: CompeyDev/setup-rokit@v0.2.1
+        with:
+          version: v1.2.0
 
       - name: Install pinned Luau toolchain
         run: rokit install
+
+      - name: Prefer the pinned Lute binary over Rokit shims
+        run: |
+          lute_dir="$HOME/.rokit/tool-storage/luau-lang/lute/1.0.0"
+          test -x "$lute_dir/lute"
+          echo "$lute_dir" >> "$GITHUB_PATH"
 
       - name: Verify pinned Lute version
         run: test "$(lute --version)" = "1.0.0"
@@ -137,8 +149,15 @@ jobs:
       - name: Install Python package
         run: uv sync --locked --extra dev
 
+      - name: Verify generated Studio protocol schemas
+        run: uv run python tools/package_luau_protocol_schemas.py --check
+
       - name: Exercise the real Lute parser
-        run: uv run pytest -m integration packages/sandbox/tests/test_lute_integration.py
+        run: |
+          uv run python -m pytest -m integration \
+            packages/sandbox/tests/test_lute_integration.py \
+            packages/protocol/tests/test_luau_conformance.py \
+            packages/protocol/tests/test_luau_schema_conformance.py
 
       - name: Build and exercise the rainforest round with simulated players
         run: |
@@ -146,6 +165,14 @@ jobs:
           uv run python tools/build_roblox_place.py "$scene/scene-recipe.json" dist/rainforest.rbxlx \
             --gameplay-mode rule_game --gameplay-rules "$scene/gameplay-rules.json"
           uv run python tools/check_rainforest_round.py dist/rainforest.rbxlx
+
+          uv run python tools/build_roblox_place.py "$scene/scene-recipe.json" dist/rainforest-obby.rbxlx \
+            --gameplay-mode obby
+          uv run python tools/check_rainforest_obby.py dist/rainforest-obby.rbxlx
+
+          uv run python tools/build_roblox_place.py "$scene/scene-recipe.json" dist/rainforest-treasure-hunt.rbxlx \
+            --gameplay-mode treasure_hunt
+          uv run python tools/check_rainforest_treasure_hunt.py dist/rainforest-treasure-hunt.rbxlx
 
   sandbox-windows:
     name: Windows sandbox process limits
@@ -198,6 +225,9 @@ jobs:
             --python tools/smoke_blender_extension.py -- \
             --recipe examples/worlds/mistral-coast-lookout-v2/scene-recipe.json \
             --output /tmp/rga-extension-smoke.glb
+          "${compose[@]}" run --rm --no-deps \
+            --entrypoint python blender-mcp \
+            tools/smoke_blender_cutaway_mcp.py /opt/blender/blender
           "${compose[@]}" up --detach blender-mcp
 
           for attempt in $(seq 1 30); do
@@ -256,6 +286,15 @@ jobs:
           ROBLOX_MCP_URL=http://127.0.0.1:8790/mcp \
             ROBLOX_MCP_BEARER_TOKEN="$token" \
             python3 tools/smoke_remote_roblox_mcp.py
+
+      - name: Smoke-test complete PNG and JPEG pixel decoding
+        run: |
+          set -euo pipefail
+          docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --memory 512m --cpus 1 --pids-limit 64 --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --entrypoint python rga-roblox-validation-mcp:ci \
+            -m apps.roblox_mcp_server.smoke_assets
 
   remote-mcp-deployment:
     name: Unified remote MCP deployment config

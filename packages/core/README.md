@@ -47,7 +47,7 @@ skills.py   loader for version-controlled project skill packs
 asset_approval.py short-lived, exact-digest HMAC approval shared by API and MCP
 skillpacks/ game design planning, biomes and playable spaces, Blender authoring,
             Roblox Studio blockouts, character modeling and animation
-schemas/    JSON contracts for game plans and Blender scene recipes
+schemas/    JSON contracts for game plans, release/evidence reports, and Blender scene recipes
 tests/      core unit tests, skill and recipe contract tests, and fixed evaluations
 ```
 
@@ -86,6 +86,31 @@ Character modeling and movement guidance is added when the brief names a
 character, creature, rig, anatomy, or movement task; English and Spanish
 singular and plural forms are recognized so requests such as “personajes” or
 “animaciones” load the dedicated character skillpack.
+
+For production or launch briefs, the game-design planning skill includes a
+release-readiness reference covering server authority, abuse cases, persistence,
+commerce, device/network testing, performance, content maturity, and rollback.
+It turns applicable topics into reviewable plan gates; it does not certify
+Roblox policy compliance or imply that a generated place passed those gates.
+See
+[`production-readiness.md`](skillpacks/game-design-planning/references/production-readiness.md).
+The `release_readiness` module builds a companion report against the exact
+Game Plan v2 contract. Its versioned schema requires all nine gates to remain
+pending with empty evidence until an external reviewer verifies them; it is a
+checklist handoff, not a gate-approval service. English and Spanish scope cues
+distinguish explicit saving from session-only progression; ambiguous or
+session-only cases remain pending and require an owner decision instead of
+being treated as verified or automatically in scope.
+To assemble explicitly selected local verification artifacts without changing
+the pending status, use `python tools/package_release_evidence.py` from the
+repository root; its manifest records gate associations and SHA-256 digests,
+but packaging alone does not independently validate evidence claims or certify
+readiness. Run `python tools/verify_release_evidence.py` to validate the archive
+structure, pending report, and every recorded file digest. Supply `--sha256`
+with the ZIP digest obtained through a trusted channel to anchor the check to
+those exact bytes; without it, the command checks internal consistency only.
+Neither form establishes that evidence claims are true or approves a release
+gate.
 
 When a brief explicitly asks for a route, trail, path, road, or boardwalk, the
 generation loop also requires at least one object with the `path` role. A missing
@@ -135,11 +160,16 @@ mode requires at least two connected `path` segments; it adds sequential
 checkpoint/respawn pads, stage and session-win stats, and its own fixed server
 script. Both modes support optional, role-tagged lethal touch hazards using
 server-owned logic. `rule_game` adds a generic, bounded touch-rule format for
-awarding points, healing, nonlethal hazard damage, wins at landmarks, or lethal
-hazard effects interpreted by one exact
-repository-owned Script. Its rules are validated data; no mode accepts
+awarding points, healing, temporary speed boosts, nonlethal hazard damage, wins
+at landmarks, or lethal hazard effects interpreted by one exact
+repository-owned Script. A win pauses nonlethal touch effects for one second to
+prevent duplicate wins while touch state resets; lethal hazards remain active.
+Its rules are validated data; no mode accepts
 model-authored Luau. Obby progression is session only and these modes do not
-save data. Collectible proxies are
+save data. Treasure Hunt awards one victory per full set and resets collection
+progress independently for each player so another round can start; a brief
+server-side debounce suppresses duplicate touch callbacks during the reset.
+Collectible proxies are
 noncollidable and explicitly keep touch
 detection enabled for the fixed server handler. Primitive Parts preserve
 the Blender Z-up to Roblox Y-up transform; custom meshes and unsupported

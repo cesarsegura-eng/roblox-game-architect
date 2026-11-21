@@ -3,10 +3,21 @@
 Use `rga_review_game_plan` with a structured game plan to get the required
 map roles and build settings. Supply the scene recipe as well to check role
 coverage, route constraints and gameplay rules before spending time on a build.
+Pass that same reviewed `plan` with the exact `recipe` to `rga_build_place` or
+`rga_build_place_download`; the build host rechecks that the selected mode and
+rules match the plan and that the recipe satisfies its required roles.
 For example, an unreachable win threshold reports both the requested score and
 the points available per round. The tool runs on the MCP host with Open Cloud
 disabled. A successful review covers the proposed data. Engine playtests
 establish whether a player can traverse the map and trigger its mechanics.
+
+Authenticated agents can discover and read curated JSON references through
+`resources/list` and `resources/read`. Available `rga://examples/` resources
+cover a rainforest scene and playable plan, a desert courtyard home, coastal
+architecture, an alpine inn, a mangrove stilt house, gameplay rules, and a
+character movement set. Apply the versioned `rga://schemas/` resources when
+editing these examples. References show supported input shapes; they are not
+proof of gameplay, rig compatibility, or production readiness.
 
 This service runs on a separate server. A bearer token and the bundled Rojo
 executable enable `rga_build_place`. The service exposes `rga_validate_map`
@@ -19,10 +30,13 @@ Roblox Open Cloud place version. The builder uses pinned Rojo 7.7.1 to create a
 complete `.rbxlx` artifact from the same bounded recipe. The default mode is
 script-free. An explicitly selected Treasure Hunt mode requires `collectible`
 objects and a `path`; the Obby Course mode requires at least two connected
-`path` segments and creates ordered checkpoint pads. Each uses one exact
+`path` segments, listed in start-to-finish order with each consecutive pair
+connected, and creates checkpoint pads in that sequence. Treasure Hunt tracks
+collections per player, resets that player's score after each full set, and
+supports repeat rounds with a brief touch debounce. Each mode uses one exact
 project-owned server script. Obby stage and win stats are session-only. `rule_game`
 accepts a bounded `gameplay_rules` array for touch-triggered score, healing,
-nonlethal hazard damage, elimination, and threshold-based wins; the same fixed interpreter handles
+temporary speed boosts, nonlethal hazard damage, elimination, and threshold-based wins; the same fixed interpreter handles
 every approved rule and rechecks its role, exact fields, and numeric ranges in
 the Roblox server runtime. No mode
 accepts model-provided Luau.
@@ -81,7 +95,43 @@ artifact digest, metadata, request ID, and approval ID. The Open Cloud key and
 approval secret stay on trusted servers. SQLite records the request before the
 external write; an ambiguous result is never resubmitted automatically. A
 successful operation returns the asset ID and moderation state. Upload creates
-a persistent Roblox asset; it does not publish or modify a place.
+a persistent Roblox asset; it does not publish or modify a place. Before any
+external request, the host checks each GLTF primitive's accessor counts against
+Roblox's 20,000-triangle per-imported-MeshPart ceiling, verifies referenced
+accessor ranges and alignment fit the embedded buffer, rejects invalid vertex
+strides, validates every standard and custom vertex-attribute reference,
+component type, normalization flag, count, and finite value, rejects normalized
+float positions and indices outside the position array, and checks non-finite
+positions. It caps
+vertex accessors at 60,000 elements per mesh and animation accessors at 100,000
+elements, including sparse accessors, and caps total accessor elements visited
+across the file at 1,000,000 to bound repeated scans of reused accessors. Sparse
+substitutions are applied before checking positions, indices, skin data, or
+animation values. It rejects
+non-finite or unbounded node transforms, invalid mesh/camera/child references,
+cyclic or multiply-parented node hierarchies, and TRS animations targeting
+matrix nodes. GLTF extension declarations must be well-formed, and extensions
+are rejected because compressed or extended geometry/material data is not
+decoded by this preflight. GLTF metadata collections are bounded to 16,384
+entries each, embedded images to 256, and aggregate texture dimensions to 64
+million pixels. For skinned meshes it validates paired joint/weight attributes,
+joint references, finite MAT4 inverse-bind matrices whose count covers the skin
+joints, affine matrix rows, and Roblox's four-influence limit per vertex. Morph
+target accessors, per-mesh target counts, mesh/node weights, and morph-weight
+animation dimensions are checked against the base primitive and bounded data.
+Animation clips are checked for valid channels, increasing finite key times,
+matching output dimensions, and finite output values. Embedded PNG/JPEG textures
+are checked for recognized headers and Roblox's 4096-pixel dimension cap. PNG chunk
+checksums are verified; JPEG frame, scan, and end-marker structure is checked
+before Pillow 13.0.0 fully decodes every unique embedded image source; the
+decoder runs sequentially with decompression-bomb warnings treated as errors.
+The service container is bounded to 512 MiB and one CPU. Material-to-texture-to-image references
+are checked against the embedded GLB tables. This preflight does not prove
+watertight geometry, UV quality, texture visual quality, successful moderation,
+animation quality, or Studio rendering. Install the optional `roblox-assets`
+extra on the remote service; end users do not need Pillow installed locally.
+The structural checks follow the [glTF 2.0 skin and morph-target rules](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
+and Roblox's [mesh and importer requirements](https://create.roblox.com/docs/studio/importer).
 
 For a pending upload, call `rga_check_model_upload` with its original
 `request_id`. The host uses Get Asset with the server key's asset read
@@ -198,8 +248,9 @@ been inspected, and restoration of its prior version has been rehearsed.
 The service binds to `127.0.0.1:8790`. Put a trusted TLS reverse proxy in front
 of it and expose only `/mcp`. Restrict network access to the RGA API host and
 registered agent MCP clients where their egress ranges are stable; otherwise
-rely on the unique bearer credential, TLS, proxy rate limits, and request-size
-limits. Do not expose port 8790 directly. SQLite keeps request IDs, temporary
+rely on the unique bearer credential, TLS, the bundled proxy's request-header and
+body timeouts, and request-size limits. The stock proxy has no per-client rate limit,
+so add one at your edge if the endpoint is reachable by untrusted networks. Do not expose port 8790 directly. SQLite keeps request IDs, temporary
 build artifacts, approvals, and receipts across restarts. An interrupted or
 ambiguous Open Cloud request is marked uncertain and will not be submitted
 again for the same request ID.
@@ -240,6 +291,11 @@ waypoints for every route leg, and the declared status must agree with the
 connectivity result. With fewer than two path features, only a zero-waypoint,
 disconnected `structure_only` result is valid. A failed multi-leg check may
 retain waypoints from earlier successful legs, but it remains a failure.
+On a failed route, the receipt includes `navigation_failed_leg` with its
+zero-based `leg_index` and exact `from` and `to` path names. The operator panel
+shows those names and the one-based segment number, giving the agent specific
+adjacent path sections to revise. Successful and structure-only receipts carry
+a null diagnostic.
 
 Validation request digests include the navigation contract version and pinned
 universe, place, and place-version IDs. Changing any target ID requires a new
@@ -253,4 +309,6 @@ starts the built container with a test-only fake validator and exercises its
 authenticated initialize, tool-list, and recipe receipt flow; that smoke does
 not contact Roblox or count as live place verification. Live Roblox runtime
 verification still requires the separately provisioned test place and a scoped
-Open Cloud key.
+Open Cloud key. A second isolated container smoke uses the pinned Pillow extra
+to decode valid PNG/JPEG GLBs and reject a structurally valid but undecodable
+JPEG before any Open Cloud request.

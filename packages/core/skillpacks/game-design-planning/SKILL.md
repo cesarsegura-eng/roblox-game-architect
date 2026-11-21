@@ -1,6 +1,6 @@
 ---
 name: game-design-planning
-description: Turn a Roblox game brief into a scoped, testable plan that can feed safe world and Studio blockout workflows.
+description: Turn a Roblox game brief into a scoped, testable plan for safe world, Studio blockout, and production-release workflows.
 ---
 
 # Game design planning
@@ -9,8 +9,20 @@ Use this skill to turn a broad game idea into a small, reviewable plan. Clarify
 the player promise, audience, core loop, map needs, feature dependencies, and a
 first playable milestone. Prefer one coherent experience over a long feature
 wish list.
-Follow the `game-plan-v2` reference for the exact included/deferred system
-partition and supported fixed or data-rule build modes.
+Use `references/game-plan-v2.schema.json` as the authoritative portable contract
+and the `game-plan-v2` reference for the included/deferred system partition and
+supported fixed or data-rule build modes. The RGA planner API supplies this
+schema to its own generation call when available.
+For production or launch requests, also read
+`references/production-readiness.md` and turn its applicable gates into explicit
+milestones and validation goals. A generated plan is not evidence that a game
+has passed those gates.
+Where this repository's operator API is available, use **Review release gates**
+or `POST /v1/operator/release-readiness` to produce the companion gate report.
+In other agent environments, use the checklist directly; do not assume this API
+is connected. Treat all gates as pending until owners review reproducible
+evidence; neither the report nor the checklist tests Studio, certifies platform
+policy, or authorizes release.
 
 ## Planning method
 
@@ -22,6 +34,13 @@ partition and supported fixed or data-rule build modes.
 - Design the first map around the loop: spawn, orientation, route, objective,
   recovery, and return. Use the `world-environments` and
   `roblox-studio-map-blockouts` skills for spatial and Studio constraints.
+- When included systems require custom gameplay code, load
+  `roblox-gameplay-engineering` for server/client design, abuse review,
+  persistence, and Studio validation. The plan itself remains JSON-only; the
+  gameplay skill uses the user's existing native Studio tools in a later step.
+- For HUD, menus, onboarding, inventory, settings, input support, or player
+  feedback, load `roblox-ui-ux` and make device/input/accessibility checks part
+  of the acceptance criteria.
 - Organize milestones so a small playable slice comes before content volume,
   economy depth, live operations, or polish. Each milestone needs an observable
   completion condition.
@@ -36,6 +55,11 @@ partition and supported fixed or data-rule build modes.
   Scene Recipe can create, and never put Luau or free-form parameters there.
 - State how the plan can be checked: route readability, objective completion,
   retry behavior, device performance, and accessibility should be concrete.
+- For a release request, define the intended platforms, audience, content and
+  monetization surfaces, persistence needs, multiplayer risk, performance
+  targets, and operational owner. Add measurable validation and human review
+  gates for the parts that apply; do not treat a blockout, template simulation,
+  or passing structural validator as release approval.
 - Keep estimates qualitative unless the brief provides team, schedule, budget,
   and production assumptions. Do not invent a promise of delivery time.
 

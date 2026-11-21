@@ -18,6 +18,32 @@ regional climate and ecoregion data over generic labels.
 | Wetland/freshwater | Saturated soils, shallow water, reeds, channels and seasonal flooding | Raised paths, pools, soft ground boundaries, reflections, obscured low routes and dry refuge |
 | Coastal/marine edge | Tides, wave exposure, salt, sediment and freshwater mixing shape land and life | Tide-revealed routes, cliffs/beaches/mangroves, spray, horizon landmarks, safe high ground |
 
+## Specialized settings and connected habitats
+
+The broad labels above hide environmental behavior that changes routes, sight,
+sound, and settlement design. Identify the regional subtype and its seasonal or
+tidal cycle before choosing props. The following cases are distinct starting
+points, not universal asset recipes:
+
+| Setting | Drivers and spatial cues | Useful level and ambience ideas |
+|---|---|---|
+| Cloud or fog forest | Persistent ridge fog, water capture on leaves, layered canopy, moss and deep leaf litter; the balance of wind, slope, and shelter matters | Let fog soften distant views while canopy breaks reveal landmarks; use dripping leaves, muted distance, and sheltered clearings. Preserve nearby route contrast in low visibility. |
+| Tropical seasonal forest and monsoon woodland | Rainfall and plant growth can vary strongly by season; dry-season light, wet-season runoff, and persistent groundwater differ by region | Show the same route in contrasting wet and dry states; make drainage lines, seasonal pools, and dry refuges explain route changes. Do not assume every tropical forest has year-round rain or that rainfall and greenness peak together. |
+| Mediterranean shrubland / chaparral | Mild wet season and hot dry season; drought-adapted shrubs, slope/aspect mosaics, and region-specific fire regimes | Use dense scrub to shape partial sightlines and open ridges as navigation points. If showing a burn scar, research its age and recovery stage; fire adaptation does not mean every chaparral system needs frequent fire. |
+| Volcanic landscape and lava field | Lava, ash, and cinder create substrates of different ages; weathering and ecological succession gradually establish soils and plant cover | Contrast bare dark flows with older vegetated pockets, fissures, and windblown soil. Treat lava tubes and steep flow edges as site-specific features; the geological setting is not a single biome. |
+| River floodplain and seasonal wetland | Flood frequency, flow, water depth, connectivity, sediment, and elevation determine the habitat mosaic | Let raised natural ground carry reliable routes while low channels, ponds, and wetlands change seasonally. Use flood marks, deposition, drift, or cut banks as readable evidence of water movement. |
+| Estuary: mangrove, salt marsh, mudflat, and seagrass mosaic | Tides and a fresh-to-salt water gradient control flooding, sediment, vegetation zones, and connections to offshore habitats | Make tidal creeks and elevated refuge routes legible; distinguish tangled mangrove roots, open marsh, exposed mudflat, and submerged grass beds. A Caribbean design may connect mangroves, seagrass, and reefs, but do not treat that arrangement as global. |
+| Shallow coral reef, rocky shore, or kelp forest | Depth, light, wave exposure, water clarity, temperature, and substrate support different communities; these are marine habitats, not interchangeable coastal decoration | Use depth bands and reef structure to frame swim routes, shelter, and discovery. In reef scenes, build visual density from habitat structure and preserve clear navigation gaps; in kelp scenes, use vertical motion and filtered light rather than coral props. |
+| Cave and subterranean habitat | Entrance, twilight, dark, and submerged zones differ in light, temperature, humidity, water, and available food | Progress from daylight and exterior sound to low-light silhouettes, localized sound, and water echoes. Put natural light only near openings; use authored light sources as explicit game-world fixtures deeper inside. |
+
+These distinctions make level logic more specific: a floodplain needs elevation
+and water connectivity; an estuary needs tidal and salinity zones; a cave needs
+light and nutrient transitions. Use a local field guide, ecoregion atlas, or
+regional authority when a brief names a real place. A general source can inform
+the ecological relationship, but it cannot determine culturally accurate
+architecture, species placement, exact seasonal color, or a particular site's
+history.
+
 These are starting questions, not biome asset lists. Avoid mixing plants and
 landforms that need incompatible climates unless the transition is explained.
 For a real or ecologically grounded location, reason about habitat communities
@@ -75,6 +101,21 @@ performance in different places.
   as coherent subareas with their own entry, focal point, and local material
   logic. Keep this design pass separate from later asset-density and device-
   quality optimization.
+- Translate the design to the target engine honestly. Roblox recommends native
+  Terrain for outdoor environments where it fits the experience's performance
+  and lighting needs. RGA's current Scene Recipe emits bounded parts and meshes
+  and can configure dynamic Clouds, but it does not generate terrain voxels or
+  sculpted heightfields; keep the geometry as a readable blockout and create a
+  concrete Terrain-authoring handoff instead of claiming a sculpted landscape.
+- Treat lighting as a layered system: global Lighting establishes time, color,
+  and shadow style; Atmosphere shapes distant air; local sources identify lamps,
+  fires, and focal interactions. Use the schema's supported subset and list
+  unavailable post-processing, cloud, or time-transition work as follow-up.
+- Make performance a measured art pass. Inspect assembled scenes for unnecessary
+  geometry, texture duplication, shadow cost, and overlapping transparency.
+  Profile with Roblox Studio's Scene Analysis and MicroProfiler on representative
+  devices; recipe object or triangle counts alone do not prove frame-rate or
+  memory performance.
 
 ## Source notes
 
@@ -96,6 +137,6 @@ performance in different places.
   importing its game-specific layouts or combat balance.
 
 Full links and additional technical sources are in
-`docs/art-direction/research-sources.md`.
+`references/research-sources.md`.
 For route archetypes, house programs, interior circulation, and lighting/sound
 handoffs, also read `playable-spaces.md`.

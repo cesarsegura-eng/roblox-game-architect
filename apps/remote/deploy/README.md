@@ -1,12 +1,14 @@
 # Remote MCP deployment
 
-This stack runs the Blender and Roblox MCP services on a separate host. Only
+This stack can run the Blender and Roblox MCP services on a separate host. Only
 Caddy publishes ports 80/443; the MCP containers have no host ports and are
-reachable only on the Compose network. The user's computer needs only an agent
-that can connect to the two HTTPS MCP endpoints and load the portable RGA skills.
-Blender runs inside the Blender server image. Roblox Studio is not required for
-the fixed data-only build and map-validation tools; Studio remains useful for
-human review and live acceptance testing.
+reachable only on the Compose network. The user's computer needs the existing
+agent and its tools. Direct Roblox edits use the user's existing Roblox Studio
+session and native MCP; Blender runs in the remote server image, so no local
+Blender install or RGA server is required. Claude Code connects to remote
+Blender authoring and leaves its native Studio MCP configuration untouched.
+This deployment's Roblox MCP is an optional artifact builder for compatible
+agent setups that already expose it.
 
 ## Host requirements
 
@@ -67,13 +69,24 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Caddy obtains and renews TLS certificates. It forwards only `/mcp` and
-`/artifacts/*` for Blender, and `/mcp` and GET `/downloads/*` for Roblox. The Blender health endpoint
+Caddy obtains and renews TLS certificates. It forwards POST `/mcp` and GET
+`/artifacts/*` for Blender, and POST `/mcp` and GET `/downloads/*` for Roblox. The Blender health endpoint
 and every other route stay private. Caddy preserves MCP and authorization
-headers; request bodies are capped at 1 MiB for Blender calls and 28 MiB for
+headers; request bodies are capped at 2 MB for Blender calls and 28 MB for
 Roblox MCP calls. The service handlers apply their own stricter tool-specific
 limits. Pin and review the image versions before exposing this stack to agent
 clients.
+
+## Abuse controls
+
+The bundled `Caddyfile` limits request size per route and bounds how long a client
+may take to send its headers (10 s) and body (120 s), and each service also drops a
+client that stalls for 30 s. Each service admits only a few simultaneous requests
+(Blender 8, Roblox 2), so a flood of valid connections can still queue legitimate
+ones. The stock Caddy image has no per-client rate limit; if the endpoints are
+reachable by untrusted networks, add one at your edge (a firewall, a managed proxy
+or a Caddy build with a rate-limit module). Authentication happens before any body
+is read, and every endpoint requires its own bearer token.
 
 ## Connect an existing agent
 
@@ -85,13 +98,29 @@ download that one file for 15 minutes without the service credential. Each
 server process holds at most 64 MiB or 256 files. Restarting it clears links.
 Use a single Roblox backend for this route and omit download paths from proxy logs.
 
-Configure the agent's MCP client with these Streamable HTTP URLs and the matching
-bearer credentials:
+The Blender service returns a separate 15-minute signed URL for each generated
+GLB. The unified Compose deployment sets `BLENDER_MCP_PUBLIC_ORIGIN` from
+`BLENDER_DOMAIN`; standalone Blender deployments should set it to their public
+HTTPS origin. Do not record `/artifacts/*` request paths or query strings in
+reverse-proxy access logs. Claude downloads only the model data into a folder
+already approved by the user's native Studio MCP, then uses that existing
+connection's Open Cloud upload tool after the user's approval. The current
+Open Cloud model upload limit is 20 MB; the optional RGA Roblox MCP is not
+required for this path.
+Compare the receipt's `artifact_sha256` with the downloaded bytes before any
+Studio MCP upload.
+
+An agent environment using both RGA hosted services can configure its MCP
+client with these Streamable HTTP URLs and matching bearer credentials:
 
 ```text
 https://<BLENDER_DOMAIN>/mcp
 https://<ROBLOX_DOMAIN>/mcp
 ```
+
+For Claude Code, follow the [Claude integration guide](../../../docs/integrations/claude-code.md).
+It configures only remote Blender authoring and leaves Claude's native Roblox
+Studio MCP untouched. The separate RGA Roblox MCP is not added to Claude.
 
 Build the portable skill archive from the repository root with
 `python tools/package_agent_skills.py --archive dist/rga-agent-skills.zip`, then
@@ -99,11 +128,13 @@ install/import it in the agent's own skill system. Do not install Blender,
 Roblox Studio, or the RGA API on the player's computer for the direct MCP
 workflow. The optional local API/operator panel is a separate deployment choice.
 
-Verify both endpoint tool lists through the actual agent MCP client before
-calling them live. Start with read-only health/contract checks, then build a
-non-published artifact and inspect it. Cloud writes and test-place publication
-remain disabled until the isolated Roblox target and rollback evidence are
-recorded in [ADR-0015](../../../docs/architecture/adr/0015-disposable-world-validation.md)
+Use `docker compose ps` on the host to confirm both containers are healthy; the
+`/healthz` endpoints are intentionally private and are not reachable through
+Caddy. Then verify both MCP tool lists through the actual agent MCP client,
+starting with read-only contract checks before building and inspecting a
+non-published artifact. Cloud writes and test-place publication remain disabled
+until the isolated Roblox target and rollback evidence are recorded in
+[ADR-0015](../../../docs/architecture/adr/0015-disposable-world-validation.md)
 and [ADR-0018](../../../docs/architecture/adr/0018-remote-roblox-map-authoring.md).
 
 The deployment pins Caddy 2.11.8, which includes the request size limiter. See the

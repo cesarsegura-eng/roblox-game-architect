@@ -133,6 +133,8 @@ def test_panel_is_served():
         assert script_status == 200
         assert b"/v1/operator/world-quote" in script_body
         assert b"/v1/operator/game-plan-quote" in script_body
+        assert b"/v1/operator/release-readiness" in script_body
+        assert b'id="review-release-readiness"' in body
         assert b"/v1/operator/studio-quote" in script_body
         assert b"/v1/operator/code-preview-quote" in script_body
         html_ids = set(re.findall(rb'\bid="([A-Za-z0-9_-]+)"', body))
@@ -184,8 +186,9 @@ def test_operator_approves_remote_blender_glb_upload_with_auditable_receipt():
     class Blender:
         audit_host = "blender.example"
 
-        def download_artifact(self, observed_id):
+        def download_artifact(self, observed_id, *, expected_sha256=None):
             blender_calls.append(observed_id)
+            assert expected_sha256 is None
             return glb
 
     class Roblox:
@@ -490,6 +493,7 @@ def test_operator_can_run_and_audit_fixed_harness_validation():
                 path_feature_count=2,
                 navigation_waypoint_count=3,
                 navigation_connected=True,
+                navigation_failed_leg=None,
             )
 
     with _server(roblox_mcp=_RobloxMCP()) as (server, service):
@@ -510,6 +514,54 @@ def test_operator_can_run_and_audit_fixed_harness_validation():
         assert total == 1
         assert events[0]["kind"] == "roblox_map_validation_completed"
         assert events[0]["remote_host"] == "roblox-validation.example"
+
+
+def test_operator_classifies_contradictory_remote_navigation_as_invalid_receipt():
+    recipe = {
+        "schema_version": 2,
+        "name": "Test Route",
+        "units": "blender_units",
+        "up_axis": "Z",
+        "objects": [
+            {
+                "name": f"Path {index}",
+                "role": "path",
+                "primitive": "cube",
+                "location": [index * 4, 0, 0],
+                "rotation_deg": [0, 0, 0],
+                "scale": [4, 1, 2],
+            }
+            for index in range(3)
+        ],
+    }
+    request_id = "00000000-0000-4000-8000-000000000021"
+
+    class _RobloxMCP:
+        audit_host = "roblox-validation.example"
+
+        def validate_recipe(self, received: dict[str, object], received_id: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                request_id=received_id,
+                place_version="7",
+                task_id="00000000-0000-4000-8000-000000000022",
+                validation_status="navigation_failed",
+                object_count=len(received["objects"]),
+                path_feature_count=3,
+                navigation_waypoint_count=2,
+                navigation_connected=False,
+                navigation_failed_leg={"leg_index": 0, "from": "Path 0", "to": "Path 1"},
+            )
+
+    with _server(roblox_mcp=_RobloxMCP()) as (server, _service):
+        status, body, _ = _request(
+            server,
+            "POST",
+            "/v1/operator/roblox-validate",
+            payload={"recipe": recipe, "request_id": request_id},
+        )
+
+    assert status == 502
+    assert json.loads(body)["error"]["code"] == "remote_receipt_invalid"
 
 
 def test_operator_can_review_and_download_remote_script_free_place_artifact():
@@ -1058,6 +1110,49 @@ def test_game_plan_is_quoted_generated_validated_and_audited():
         assert "Create a readable floating harbor" not in json.dumps(events[0])
 
 
+def test_release_readiness_endpoint_returns_pending_gates_and_requires_operator_auth():
+    plan_path = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "worlds"
+        / "rainforest-checkpoint-obby"
+        / "game-plan.json"
+    )
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+
+    with _server() as (server, _service):
+        denied = _request(
+            server,
+            "POST",
+            "/v1/operator/release-readiness",
+            token=None,
+            payload={"plan": plan},
+        )
+        assert denied[0] == 401
+
+        status, body, _ = _request(
+            server,
+            "POST",
+            "/v1/operator/release-readiness",
+            payload={"plan": plan},
+        )
+        assert status == 200
+        report = json.loads(body)["report"]
+        assert report["plan_title"] == plan["title"]
+        assert report["readiness"] == "not_ready"
+        assert report["verified_gate_count"] == 0
+        assert report["pending_gate_count"] == 9
+
+        malformed_status, malformed_body, _ = _request(
+            server,
+            "POST",
+            "/v1/operator/release-readiness",
+            payload={"plan": {"schema_version": 2, "title": "unsafe"}},
+        )
+        assert malformed_status == 400
+        assert json.loads(malformed_body)["error"]["code"] == "invalid_request"
+
+
 def test_world_cost_quote_requires_operator_auth_and_returns_bounded_cost_data():
     calls = []
 
@@ -1274,9 +1369,11 @@ def test_remote_blender_import_requires_review_and_is_audited():
                 artifact_id="53e2d255-fbf7-5bb2-9c15-0654e5cc9b30",
                 recipe_name=recipe["name"],
                 object_count=len(recipe["objects"]),
+                artifact_sha256=hashlib.sha256(b"test-glb").hexdigest(),
             )
 
-        def download_artifact(self, _artifact_id):
+        def download_artifact(self, _artifact_id, *, expected_sha256=None):
+            assert expected_sha256 == hashlib.sha256(b"test-glb").hexdigest()
             return b"test-glb"
 
     remote = RemoteBlender()
@@ -1314,9 +1411,11 @@ def test_remote_blender_import_requires_review_and_is_audited():
         result = json.loads(body)
         assert result["artifact_id"] == "53e2d255-fbf7-5bb2-9c15-0654e5cc9b30"
         assert result["object_count"] == 1
+        assert result["artifact_sha256"] == hashlib.sha256(b"test-glb").hexdigest()
         assert events[-1]["kind"] == "blender_artifact_built"
         assert events[-1]["recipe_name"] == "Test Grove"
         assert events[-1]["artifact_id"] == result["artifact_id"]
+        assert events[-1]["artifact_sha256"] == result["artifact_sha256"]
         assert "recipe" not in events[-1]
         status, artifact, headers = _request(
             server,
@@ -1326,6 +1425,15 @@ def test_remote_blender_import_requires_review_and_is_audited():
         assert status == 200
         assert artifact == b"test-glb"
         assert headers["content-type"] == "model/gltf-binary"
+
+        remote.download_artifact = lambda _artifact_id, **_kwargs: b"altered-glb"
+        mismatch_status, mismatch_body, _ = _request(
+            server,
+            "GET",
+            f"/v1/operator/blender-artifact/{result['artifact_id']}",
+        )
+        assert mismatch_status == 502
+        assert json.loads(mismatch_body)["error"]["code"] == "artifact_digest_mismatch"
 
 
 def test_remote_blender_route_rejects_invalid_recipe_without_calling_server():

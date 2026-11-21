@@ -7,6 +7,7 @@ Terminate TLS at a trusted reverse proxy before exposing this process publicly.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import http.server
@@ -20,6 +21,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -37,10 +39,14 @@ LEGACY_PROTOCOL_VERSION = "2025-11-25"
 TOOL_NAME = "rga_apply_scene_recipe"
 MAX_REQUEST_BYTES = 1_200_000
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+MAX_PREVIEW_BYTES = 1 * 1024 * 1024
+PREVIEW_SIZE = 512
 WORKER_TIMEOUT_SECONDS = 180
 WORKER_MEMORY_LIMIT_BYTES = 4 * 1024 * 1024 * 1024
 ARTIFACT_RETENTION_SECONDS = 7 * 24 * 60 * 60
+ARTIFACT_DOWNLOAD_TTL_SECONDS = 15 * 60
 MAX_ARTIFACT_STORE_BYTES = 2 * 1024 * 1024 * 1024
+MAX_ARTIFACT_STORE_FILES = 4096
 _ARTIFACT_ROUTE = re.compile(r"/artifacts/([0-9a-f-]{36})\.glb\Z", re.ASCII)
 _BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*\Z", re.ASCII)
 _REQUEST_NAMESPACE = uuid.UUID("0c59cf7a-49ee-46a6-8ce7-c37c9b8a3d5a")
@@ -56,6 +62,8 @@ class ArtifactReceipt:
     artifact_id: str
     recipe_name: str
     object_count: int
+    artifact_sha256: str
+    preview_png: bytes | None = None
 
     def as_mapping(self) -> dict[str, Any]:
         return {
@@ -63,6 +71,7 @@ class ArtifactReceipt:
             "artifact_id": self.artifact_id,
             "recipe_name": self.recipe_name,
             "object_count": self.object_count,
+            "artifact_sha256": self.artifact_sha256,
         }
 
 
@@ -93,6 +102,7 @@ class BlenderSceneRenderer:
         project_root: str | Path = REPOSITORY_ROOT,
         artifact_retention_seconds: int = ARTIFACT_RETENTION_SECONDS,
         max_store_bytes: int = MAX_ARTIFACT_STORE_BYTES,
+        max_store_files: int = MAX_ARTIFACT_STORE_FILES,
     ) -> None:
         executable = Path(blender_executable).resolve()
         if not executable.is_file():
@@ -110,10 +120,15 @@ class BlenderSceneRenderer:
         if self.output_dir.is_symlink():
             raise ValueError("artifact directory must not be a symlink")
         self.database_path = self.output_dir / "requests.sqlite3"
-        if artifact_retention_seconds < 60 or max_store_bytes < MAX_ARTIFACT_BYTES:
+        if (
+            artifact_retention_seconds < 60
+            or max_store_bytes < MAX_ARTIFACT_BYTES
+            or max_store_files < 1
+        ):
             raise ValueError("artifact retention and storage limits are too small")
         self.artifact_retention_seconds = artifact_retention_seconds
         self.max_store_bytes = max_store_bytes
+        self.max_store_files = max_store_files
         self._job_lock = threading.Lock()
         with self._connect() as db:
             db.execute(
@@ -131,6 +146,7 @@ class BlenderSceneRenderer:
             not self.output_dir.is_dir()
             or self.output_dir.is_symlink()
             or not self.database_path.is_file()
+            or not self._artifact_storage_within_limit()
         ):
             return False
         db: sqlite3.Connection | None = None
@@ -143,6 +159,24 @@ class BlenderSceneRenderer:
         finally:
             if db is not None:
                 db.close()
+        return True
+
+    def _artifact_storage_within_limit(self) -> bool:
+        total = 0
+        count = 0
+        try:
+            for path in self.output_dir.glob("*.glb"):
+                if path.is_symlink():
+                    return False
+                if path.is_file():
+                    count += 1
+                    if count > self.max_store_files:
+                        return False
+                    total += path.stat().st_size
+                    if total > self.max_store_bytes:
+                        return False
+        except OSError:
+            return False
         return True
 
     @contextmanager
@@ -159,7 +193,20 @@ class BlenderSceneRenderer:
         finally:
             db.close()
 
-    def apply_recipe(self, recipe_payload: object, request_id: str) -> ArtifactReceipt:
+    def apply_recipe(
+        self,
+        recipe_payload: object,
+        request_id: str,
+        *,
+        include_preview: bool = False,
+        preview_mode: str = "isometric",
+    ) -> ArtifactReceipt:
+        if not isinstance(include_preview, bool):
+            raise ValueError("include_preview must be a boolean")
+        if not isinstance(preview_mode, str) or preview_mode not in {"isometric", "cutaway"}:
+            raise ValueError("preview_mode must be isometric or cutaway")
+        if preview_mode != "isometric" and not include_preview:
+            raise ValueError("preview_mode requires include_preview")
         try:
             request_uuid = uuid.UUID(request_id)
         except (AttributeError, TypeError, ValueError) as exc:
@@ -172,6 +219,7 @@ class BlenderSceneRenderer:
         artifact_id = str(uuid.uuid5(_REQUEST_NAMESPACE, str(request_uuid)))
         artifact_path = self._artifact_path(artifact_id)
         object_count = recipe.rendered_object_count
+        existing_artifact_sha256: str | None = None
 
         with self._job_lock, self._connect() as db:
             self._prune_artifacts(db, int(time.time()), preserve_artifact=artifact_id)
@@ -184,9 +232,15 @@ class BlenderSceneRenderer:
                     raise ValueError("request_id was already used for a different scene recipe")
                 if artifact_path.is_file():
                     self._validate_glb(artifact_path)
-                    return ArtifactReceipt(
-                        str(request_uuid), artifact_id, recipe.name, object_count
-                    )
+                    existing_artifact_sha256 = self._sha256(artifact_path)
+                    if not include_preview:
+                        return ArtifactReceipt(
+                            str(request_uuid),
+                            artifact_id,
+                            recipe.name,
+                            object_count,
+                            existing_artifact_sha256,
+                        )
             else:
                 db.execute(
                     "INSERT INTO requests(request_id, recipe_digest, artifact_id, created_at) "
@@ -199,6 +253,7 @@ class BlenderSceneRenderer:
                 recipe_path = job_dir / "recipe.json"
                 temporary_glb = job_dir / "scene.glb"
                 result_path = job_dir / "result.json"
+                preview_path = job_dir / "preview.png"
                 recipe_path.write_bytes(normalized)
                 command = [
                     str(self.executable),
@@ -218,6 +273,10 @@ class BlenderSceneRenderer:
                     "--result",
                     str(result_path),
                 ]
+                if include_preview:
+                    command.extend(
+                        ["--preview-output", str(preview_path), "--preview-mode", preview_mode]
+                    )
                 try:
                     _run_bounded(
                         command,
@@ -246,15 +305,34 @@ class BlenderSceneRenderer:
                     or result["created_objects"] != object_count
                 ):
                     raise MCPServiceError("Blender worker returned an invalid result")
+                preview_png = None
+                if include_preview:
+                    try:
+                        if preview_path.stat().st_size > MAX_PREVIEW_BYTES:
+                            raise MCPServiceError("Blender preview exceeds the size limit")
+                        preview_png = preview_path.read_bytes()
+                    except MCPServiceError:
+                        raise
+                    except OSError as exc:
+                        raise MCPServiceError("Blender preview is missing") from exc
+                    self._validate_preview(preview_png)
                 if not temporary_glb.is_file() or temporary_glb.stat().st_size > MAX_ARTIFACT_BYTES:
                     raise MCPServiceError("Blender GLB is missing or exceeds the artifact limit")
                 self._validate_glb(temporary_glb)
-                staging_path = artifact_path.with_suffix(".glb.tmp")
-                temporary_glb.replace(staging_path)
-                staging_path.replace(artifact_path)
+                if existing_artifact_sha256 is None:
+                    staging_path = artifact_path.with_suffix(".glb.tmp")
+                    temporary_glb.replace(staging_path)
+                    staging_path.replace(artifact_path)
                 self._prune_artifacts(db, int(time.time()), preserve_artifact=artifact_id)
 
-            return ArtifactReceipt(str(request_uuid), artifact_id, recipe.name, object_count)
+            return ArtifactReceipt(
+                str(request_uuid),
+                artifact_id,
+                recipe.name,
+                object_count,
+                existing_artifact_sha256 or self._sha256(artifact_path),
+                preview_png,
+            )
 
     def _artifact_path(self, artifact_id: str) -> Path:
         path = self.output_dir / f"{artifact_id}.glb"
@@ -282,6 +360,23 @@ class BlenderSceneRenderer:
         ):
             raise MCPServiceError("Blender output is not a valid GLB scene")
 
+    @staticmethod
+    def _validate_preview(data: bytes) -> None:
+        if not 45 <= len(data) <= MAX_PREVIEW_BYTES or data[:8] != b"\x89PNG\r\n\x1a\n":
+            raise MCPServiceError("Blender output is not a bounded PNG preview")
+        if data[12:16] != b"IHDR" or data[-12:] != b"\x00\x00\x00\x00IEND\xaeB`\x82":
+            raise MCPServiceError("Blender output is not a complete PNG preview")
+        if b"IDAT" not in data:
+            raise MCPServiceError("Blender output has no PNG image data")
+        width, height = struct.unpack(">II", data[16:24])
+        if width != PREVIEW_SIZE or height != PREVIEW_SIZE:
+            raise MCPServiceError("Blender preview dimensions are invalid")
+
+    @staticmethod
+    def _sha256(path: Path) -> str:
+        with path.open("rb") as stream:
+            return hashlib.file_digest(stream, "sha256").hexdigest()
+
     def read_artifact(self, artifact_id: str) -> bytes | None:
         try:
             canonical_id = str(uuid.UUID(artifact_id))
@@ -289,9 +384,9 @@ class BlenderSceneRenderer:
             return None
         with self._connect() as db:
             found = db.execute(
-                "SELECT 1 FROM requests WHERE artifact_id = ?", (canonical_id,)
+                "SELECT created_at FROM requests WHERE artifact_id = ?", (canonical_id,)
             ).fetchone()
-        if found is None:
+        if found is None or found[0] < int(time.time()) - self.artifact_retention_seconds:
             return None
         path = self._artifact_path(canonical_id)
         try:
@@ -313,33 +408,59 @@ class BlenderSceneRenderer:
         ).fetchall()
         for request_id, artifact_id in expired:
             if artifact_id != preserve_artifact:
-                self._remove_artifact_file(artifact_id)
-                db.execute("DELETE FROM requests WHERE request_id = ?", (request_id,))
+                if self._remove_artifact_file(artifact_id):
+                    db.execute("DELETE FROM requests WHERE request_id = ?", (request_id,))
 
-        files = {path.stem: path for path in self.output_dir.glob("*.glb") if path.is_file()}
+        files: dict[str, Path] = {}
+        for path in self.output_dir.glob("*.glb"):
+            if path.is_symlink():
+                raise MCPServiceError("artifact path is invalid")
+            if path.is_file():
+                files[path.stem] = path
         total = sum(path.stat().st_size for path in files.values())
+        registered = {
+            artifact_id
+            for (artifact_id,) in db.execute("SELECT artifact_id FROM requests").fetchall()
+        }
+        for artifact_id, path in tuple(files.items()):
+            try:
+                if str(uuid.UUID(artifact_id)) != artifact_id:
+                    continue
+            except ValueError:
+                continue
+            if artifact_id in registered:
+                continue
+            size = path.stat().st_size
+            if self._remove_artifact_file(artifact_id):
+                total -= size
+                files.pop(artifact_id, None)
+
         oldest = db.execute(
             "SELECT request_id, artifact_id FROM requests ORDER BY created_at ASC"
         ).fetchall()
         for request_id, artifact_id in oldest:
-            if total <= self.max_store_bytes:
+            if total <= self.max_store_bytes and len(files) <= self.max_store_files:
                 break
             if artifact_id == preserve_artifact:
                 continue
             path = files.pop(artifact_id, None)
             if path is not None:
-                try:
-                    total -= path.stat().st_size
-                except OSError:
-                    pass
-                self._remove_artifact_file(artifact_id)
+                size = path.stat().st_size
+                if not self._remove_artifact_file(artifact_id):
+                    files[artifact_id] = path
+                    continue
+                total -= size
             db.execute("DELETE FROM requests WHERE request_id = ?", (request_id,))
 
-    def _remove_artifact_file(self, artifact_id: str) -> None:
+        if total > self.max_store_bytes or len(files) > self.max_store_files:
+            raise MCPServiceError("artifact storage limit cannot be enforced")
+
+    def _remove_artifact_file(self, artifact_id: str) -> bool:
         try:
             self._artifact_path(artifact_id).unlink(missing_ok=True)
+            return True
         except OSError:
-            pass
+            return False
 
 
 def _tool_definition() -> dict[str, Any]:
@@ -347,16 +468,21 @@ def _tool_definition() -> dict[str, Any]:
         "name": TOOL_NAME,
         "description": (
             "Build a validated, data-only RGA Scene Recipe with remote Blender and return an "
-            "artifact ID and metadata. The GLB stays on this server; no Python, bpy code, file "
-            "paths, or executable expressions are accepted. If the Roblox MCP host is configured "
-            "to use this fixed Blender host, pass the artifact ID to its prepare-model-upload tool "
-            "for a separate, user-confirmed transfer."
+            "artifact ID and metadata. When a public HTTPS origin is configured, the receipt "
+            "also includes a 15-minute, single-artifact download link for an existing native "
+            "Roblox Studio MCP import workflow. No Python, bpy code, file paths, or executable "
+            "expressions are accepted. Set include_preview=true to also receive a bounded "
+            "512x512 PNG inspection image; it is generated from the same validated scene and "
+            "is not stored. An already configured server-side Roblox asset handoff "
+            "remains optional."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "recipe": {"type": "object"},
                 "request_id": {"type": "string"},
+                "include_preview": {"type": "boolean"},
+                "preview_mode": {"type": "string", "enum": ["isometric", "cutaway"]},
             },
             "required": ["recipe", "request_id"],
             "additionalProperties": False,
@@ -372,8 +498,16 @@ def _tool_definition() -> dict[str, Any]:
                     "minimum": 1,
                     "maximum": MAX_RENDERED_OBJECTS,
                 },
+                "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "artifact_download_url": {"type": "string", "format": "uri"},
             },
-            "required": ["request_id", "artifact_id", "recipe_name", "object_count"],
+            "required": [
+                "request_id",
+                "artifact_id",
+                "recipe_name",
+                "object_count",
+                "artifact_sha256",
+            ],
             "additionalProperties": False,
         },
     }
@@ -382,6 +516,10 @@ def _tool_definition() -> dict[str, Any]:
 class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
     server_version = "rga-blender-mcp"
     sys_version = ""
+    # A client that opens a connection and then stalls (no request line, no headers,
+    # or a body that never completes) must not hold a thread indefinitely. Builds run
+    # server-side with no socket read in progress, so this does not cut them short.
+    timeout = 30
 
     def do_POST(self) -> None:
         if self.path != "/mcp":
@@ -407,7 +545,7 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
             self._plain(413 if length > MAX_REQUEST_BYTES else 400, "Request size is invalid.")
             return
         try:
-            message = _strict_json(self.rfile.read(length))
+            message = _strict_json(self._read_body(length))
         except (ValueError, UnicodeError, RecursionError):
             self._plain(400, "Request must be strict JSON.")
             return
@@ -540,14 +678,17 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
             else:
                 self._json(503, {"status": "unavailable"})
             return
-        if not self._authorized():
-            self._plain(401, "Unauthorized.")
-            return
-        match = _ARTIFACT_ROUTE.fullmatch(self.path)
+        parsed = urllib.parse.urlsplit(self.path)
+        match = _ARTIFACT_ROUTE.fullmatch(parsed.path)
         if match is None:
+            if not self._authorized():
+                self._plain(401, "Unauthorized.")
+                return
             self._plain(404, "Not found.")
             return
-        if not self._authorized():
+        if not (
+            self._authorized() or self._artifact_download_authorized(match.group(1), parsed.query)
+        ):
             self._plain(401, "Unauthorized.")
             return
         artifact_id = match.group(1)
@@ -560,6 +701,8 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Content-Disposition", f'attachment; filename="rga-{artifact_id}.glb"')
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "private, no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(data)
 
@@ -569,16 +712,46 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
             params.get("name") != TOOL_NAME
             or self.headers.get("Mcp-Name") not in {None, TOOL_NAME}
             or not isinstance(arguments, dict)
-            or set(arguments) != {"recipe", "request_id"}
+            or set(arguments) - {"recipe", "request_id", "include_preview", "preview_mode"}
+            or not {"recipe", "request_id"} <= set(arguments)
             or not isinstance(arguments["recipe"], dict)
             or not isinstance(arguments["request_id"], str)
+            or (
+                "include_preview" in arguments
+                and not isinstance(arguments["include_preview"], bool)
+            )
+            or (
+                "preview_mode" in arguments
+                and (
+                    not isinstance(arguments["preview_mode"], str)
+                    or arguments["preview_mode"] not in {"isometric", "cutaway"}
+                )
+            )
+            or (
+                arguments.get("preview_mode", "isometric") != "isometric"
+                and not arguments.get("include_preview", False)
+            )
         ):
             self._rpc_error(400, message.get("id"), -32602, "Invalid tool arguments")
             return
         try:
-            receipt = self.server.renderer.apply_recipe(  # type: ignore[attr-defined]
-                arguments["recipe"], arguments["request_id"]
-            )
+            if arguments.get("include_preview", False):
+                preview_mode = arguments.get("preview_mode", "isometric")
+                if preview_mode == "isometric":
+                    receipt = self.server.renderer.apply_recipe(  # type: ignore[attr-defined]
+                        arguments["recipe"], arguments["request_id"], include_preview=True
+                    )
+                else:
+                    receipt = self.server.renderer.apply_recipe(  # type: ignore[attr-defined]
+                        arguments["recipe"],
+                        arguments["request_id"],
+                        include_preview=True,
+                        preview_mode=preview_mode,
+                    )
+            else:
+                receipt = self.server.renderer.apply_recipe(  # type: ignore[attr-defined]
+                    arguments["recipe"], arguments["request_id"]
+                )
         except WorldbuildingError as exc:
             self._rpc_result(
                 message["id"],
@@ -596,10 +769,21 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
             self._rpc_result(message["id"], result)
             return
         value = receipt.as_mapping()
+        download_url = self.server.artifact_download_url(receipt.artifact_id)  # type: ignore[attr-defined]
+        if download_url is not None:
+            value["artifact_download_url"] = download_url
         result = {
             "content": [{"type": "text", "text": "Validated scene built as a GLB artifact."}],
             "structuredContent": value,
         }
+        if receipt.preview_png is not None:
+            result["content"].append(
+                {
+                    "type": "image",
+                    "mimeType": "image/png",
+                    "data": base64.b64encode(receipt.preview_png).decode("ascii"),
+                }
+            )
         request_params = message.get("params")
         request_meta = request_params.get("_meta") if isinstance(request_params, dict) else None
         if (
@@ -609,10 +793,46 @@ class BlenderMCPHandler(http.server.BaseHTTPRequestHandler):
             result["resultType"] = "complete"
         self._rpc_result(message["id"], result)
 
+    def _read_body(self, length: int) -> bytes:
+        """Read the declared body, or give up on a client that stalls.
+
+        The socket timeout above turns a stalled read into an error; it is reported as
+        a bad body so the existing rejection path answers it, and the connection ends.
+        """
+        try:
+            return self.rfile.read(length)
+        except OSError as exc:
+            self.close_connection = True
+            raise ValueError("the request body was not received") from exc
+
     def _authorized(self) -> bool:
         scheme, _, token = (self.headers.get("Authorization") or "").partition(" ")
         expected = self.server.bearer_token  # type: ignore[attr-defined]
         return scheme.lower() == "bearer" and bool(token) and hmac.compare_digest(token, expected)
+
+    def _artifact_download_authorized(self, artifact_id: str, query: str) -> bool:
+        try:
+            fields = urllib.parse.parse_qs(query, keep_blank_values=True, strict_parsing=True)
+        except ValueError:
+            return False
+        if set(fields) != {"expires", "signature"} or any(
+            len(values) != 1 for values in fields.values()
+        ):
+            return False
+        try:
+            expires = int(fields["expires"][0])
+            canonical_id = str(uuid.UUID(artifact_id))
+        except (IndexError, TypeError, ValueError):
+            return False
+        now = int(time.time())
+        if (
+            canonical_id != artifact_id
+            or expires <= now
+            or expires > now + ARTIFACT_DOWNLOAD_TTL_SECONDS
+        ):
+            return False
+        expected = self.server.artifact_download_signature(artifact_id, expires)  # type: ignore[attr-defined]
+        return hmac.compare_digest(fields["signature"][0], expected)
 
     def _origin_allowed(self) -> bool:
         origin = self.headers.get("Origin")
@@ -666,6 +886,7 @@ class BlenderMCPServer(http.server.ThreadingHTTPServer):
         renderer: BlenderSceneRenderer,
         bearer_token: str,
         allowed_origins: tuple[str, ...] = (),
+        public_origin: str | None = None,
     ) -> None:
         token = bearer_token.strip()
         if not 32 <= len(token) <= 512 or not token.isascii() or not _BEARER.fullmatch(token):
@@ -674,7 +895,54 @@ class BlenderMCPServer(http.server.ThreadingHTTPServer):
         self.renderer = renderer
         self.bearer_token = token
         self.allowed_origins = frozenset(allowed_origins)
+        self.public_origin = self._validate_public_origin(public_origin)
         self._request_slots = threading.BoundedSemaphore(8)
+
+    @staticmethod
+    def _validate_public_origin(value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        parsed = urllib.parse.urlsplit(value.strip())
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError(
+                "BLENDER_MCP_PUBLIC_ORIGIN must be an HTTPS origin without a path"
+            ) from exc
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or any(ord(character) <= 32 for character in parsed.netloc)
+            or "%" in parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("BLENDER_MCP_PUBLIC_ORIGIN must be an HTTPS origin without a path")
+        authority = parsed.netloc.lower()
+        if port == 443:
+            host = parsed.hostname.lower()
+            authority = f"[{host}]" if ":" in host else host
+        return f"https://{authority}"
+
+    def artifact_download_signature(self, artifact_id: str, expires: int) -> str:
+        key = hmac.new(
+            self.bearer_token.encode("ascii"),
+            b"rga-blender-artifact-download-v1",
+            hashlib.sha256,
+        ).digest()
+        message = f"{artifact_id}:{expires}".encode("ascii")
+        return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+    def artifact_download_url(self, artifact_id: str) -> str | None:
+        if self.public_origin is None:
+            return None
+        expires = int(time.time()) + ARTIFACT_DOWNLOAD_TTL_SECONDS
+        signature = self.artifact_download_signature(artifact_id, expires)
+        query = urllib.parse.urlencode({"expires": expires, "signature": signature})
+        return f"{self.public_origin}/artifacts/{artifact_id}.glb?{query}"
 
     def process_request(self, request: socket.socket, client_address: tuple[str, int]) -> None:
         if not self._request_slots.acquire(blocking=False):
@@ -716,7 +984,8 @@ def main() -> None:
     )
     host = os.environ.get("BLENDER_MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("BLENDER_MCP_PORT", "8788"))
-    server = BlenderMCPServer(host, port, renderer, token, origins)
+    public_origin = os.environ.get("BLENDER_MCP_PUBLIC_ORIGIN")
+    server = BlenderMCPServer(host, port, renderer, token, origins, public_origin)
     print(f"RGA Blender MCP listening on {host}:{port}; TLS must terminate at the reverse proxy")
     try:
         server.serve_forever(poll_interval=0.25)

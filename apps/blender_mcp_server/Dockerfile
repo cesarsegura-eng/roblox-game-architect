@@ -26,7 +26,9 @@ COPY packages ./packages
 COPY apps ./apps
 COPY tools/smoke_blender_extension.py ./tools/smoke_blender_extension.py
 COPY examples/worlds/mistral-coast-lookout-v2/scene-recipe.json ./examples/worlds/mistral-coast-lookout-v2/scene-recipe.json
-RUN python -m pip install --no-cache-dir . \
+COPY examples/worlds/desert-courtyard-home-v3/scene-recipe.json ./examples/worlds/desert-courtyard-home-v3/scene-recipe.json
+COPY tools/smoke_blender_cutaway_mcp.py ./tools/smoke_blender_cutaway_mcp.py
+RUN python -m pip install --no-cache-dir ".[roblox-assets]" \
     && mkdir -p /var/lib/rga/artifacts \
     && groupadd --system --gid 10001 rga \
     && useradd --system --uid 10001 --gid 10001 --home-dir /var/lib/rga rga \

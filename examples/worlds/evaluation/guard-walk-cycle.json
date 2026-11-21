@@ -8,6 +8,7 @@
     {
       "name": "Coast Guard Walk",
       "motion": "WALK",
+      "silhouette": "heroic",
       "location": [
         0,
         0,
@@ -22,6 +23,7 @@
     {
       "name": "Coast Guard Run",
       "motion": "RUN",
+      "silhouette": "slender",
       "location": [
         4,
         0,
@@ -36,6 +38,7 @@
     {
       "name": "Coast Guard Jump",
       "motion": "JUMP",
+      "silhouette": "round",
       "location": [
         8,
         0,

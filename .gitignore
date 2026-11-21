@@ -25,6 +25,7 @@ secrets/
 node_modules/
 dist/
 build/
+.tmp/
 .next/
 .turbo/
 *.tsbuildinfo

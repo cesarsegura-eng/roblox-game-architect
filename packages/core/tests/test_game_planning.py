@@ -86,6 +86,7 @@ def test_game_plan_accepts_data_driven_rule_game_mode():
     mapping["playable_slice"]["gameplay_rules"] = [
         {"trigger_role": "collectible", "action": "award_points", "amount": 2},
         {"trigger_role": "hazard", "action": "damage", "amount": 15},
+        {"trigger_role": "prop", "action": "speed_boost", "amount": 8, "duration_seconds": 12},
         {"trigger_role": "landmark", "action": "award_win", "minimum_points": 6},
     ]
 
@@ -97,6 +98,10 @@ def test_game_plan_accepts_data_driven_rule_game_mode():
         "action": "award_points",
         "amount": 2,
     }
+    assert (
+        plan.playable_slice.gameplay_rules[1].to_mapping()
+        == mapping["playable_slice"]["gameplay_rules"][1]
+    )
     schema_path = Path(__file__).resolve().parents[1] / "schemas" / "game-plan-v2.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(plan.to_mapping())
@@ -206,13 +211,19 @@ def test_planner_quotes_and_returns_a_validated_plan_with_skills():
     assert result.plan.title == "Sky Harbor"
     assert result.skill_names == (
         "game-design-planning",
+        "roblox-gameplay-engineering",
+        "roblox-ui-ux",
         "world-environments",
         "roblox-studio-map-blockouts",
     )
     trusted = render_trusted(provider.calls[0])
     assert "Do not output Luau, Python, commands" in trusted
     assert "Game Plan v2 JSON Schema" in trusted
+    assert "Server authority and abuse cases" in trusted
+    assert "human-owned release gates" in trusted
+    assert "device/input/accessibility checks" in trusted
     assert "gameplay_mode" in result.plan.playable_slice.to_mapping()
     assert "game-design-planning" in trusted
+    assert "Roblox gameplay engineering" in trusted
     assert spend.spent == 0
     assert spend.reserved == 0

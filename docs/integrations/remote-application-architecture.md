@@ -1,24 +1,34 @@
 # Remote application architecture
 
 Roblox Game Architect connects to external tools through server-side adapters
-where the target application supports it. The user's computer does not need to
-install any content-authoring application or extension for the product
-workflow, or host an MCP service. The user equips an existing agent with the
-project's skills and connects its MCP client to separately hosted services; the
-agent plans, invokes tools, and reports reviewable results. The optional RGA
-operator surface supports development and review. Local Studio plugins and
-Blender extensions remain optional compatibility, development, or inspection
-paths and must not become prerequisites for remote workflows.
+where the target application supports it. The remote Blender workflow does not
+require a local Blender install or an MCP service hosted on the user's computer.
+For direct Roblox creation and editing, the user supplies the Roblox Studio
+session and native MCP connection they already use. The user equips an existing
+agent with the project's skills and connects its MCP client to separately
+hosted services; the agent plans, invokes tools, and reports reviewable results.
+The optional RGA operator surface supports development and review. Local Studio
+plugins and Blender extensions remain optional compatibility, development, or
+inspection paths and must not become prerequisites for the remote Blender
+workflow.
 
 ## Blender
 
 The standard Blender path is a remote MCP service on a separate server. That
 server owns Blender 5.2.3, validates the data-only scene recipe, renders it in
-a bounded worker process, and returns a GLB artifact by ID. The API connects to
-the service over authenticated HTTPS. The optional local Blender extension is
-for users who want to author assets on their own machine; it is not a runtime
-dependency. The operator panel can check that the service is reachable and
-exposes the fixed recipe tool without building a scene. See the
+a bounded worker process, and returns a GLB artifact by ID. When configured
+with the public HTTPS origin, the receipt also includes a 15-minute signed URL
+for that one GLB. Claude can download the model data into a Studio MCP-approved
+upload folder and send it through Roblox's native Studio Open Cloud flow after
+review and approval. This handoff adds no Roblox service connection and
+installs no software on the user's computer. Roblox's current Open Cloud asset
+upload limit is 20 MB per asset; see the [native MCP
+guide](https://create.roblox.com/docs/studio/mcp-open-cloud) and [asset upload
+limits](https://create.roblox.com/docs/cloud/guides/usage-assets). The API
+connects to the service over authenticated HTTPS. The optional local Blender
+extension is for users who want to author assets on their own machine; it is
+not a runtime dependency. The operator panel can check that the service is
+reachable and exposes the fixed recipe tool without building a scene. See the
 [deployment guide](blender-remote-mcp.md).
 
 The agent's dedicated `blender-scene-authoring`, `world-environments`, and
@@ -92,6 +102,13 @@ trusted servers and do not pass through the user's agent or computer. The asset
 write requires explicit configuration, a two-step approval, and a scoped Open
 Cloud asset key; real moderation and in-engine import remain unverified. See
 the [remote Roblox MCP setup](../../apps/roblox_mcp_server/README.md#optional-reviewed-model-asset-upload).
+
+That custom server-side asset handoff is optional. Claude Code keeps its
+existing native Studio MCP connection and can use the signed Blender artifact
+URL with the native `open_cloud_invoke` tool's approved local-file upload
+parameter. The signed URL is limited to one artifact, expires within 15
+minutes, and must be excluded from proxy logs. The downloaded file is model
+data, not an installed application.
 
 Roblox's server-side Place Publishing API accepts a whole `.rbxlx` file and
 replaces the published place version rather than merging map Parts into an

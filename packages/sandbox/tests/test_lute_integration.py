@@ -1,5 +1,6 @@
 """Smoke-test the exact Lute runtime when it is installed in the environment."""
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,13 +32,81 @@ def test_studio_plugin_source_parses_with_the_pinned_luau_parser() -> None:
     assert LuteSyntaxParser().parse(source) == SyntaxCheckResult(syntax_valid=True)
 
 
+def test_terrain_heightfield_template_checks_bounds_and_refuses_occupied_region(
+    tmp_path: Path,
+) -> None:
+    repository = Path(__file__).resolve().parents[3]
+    reference = (
+        repository
+        / "packages/core/skillpacks/roblox-terrain-authoring/references/terrain-recipes.md"
+    ).read_text(encoding="utf-8")
+    blocks = re.findall(r"```luau\s*(.*?)```", reference, flags=re.DOTALL)
+    fixture = Path(__file__).with_name("terrain_skill_simulation.luau").read_text(encoding="utf-8")
+    script = tmp_path / "terrain_skill_simulation.luau"
+    generator = blocks[0].replace("math.noise(", "mockNoise(")
+    script.write_text(fixture.replace("-- INSERT TERRAIN GENERATOR", generator), encoding="utf-8")
+
+    completed = subprocess.run(  # noqa: S603 - project-owned generator and simulation only.
+        [shutil.which("lute"), "run", str(script)],
+        cwd=tmp_path,
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+    assert "PASS terrain template bounds, array shapes, and occupied-region rejection" in (
+        completed.stdout
+    )
+
+    oversized_generator = generator.replace("width_voxels = 48", "width_voxels = 65")
+    oversized_script = tmp_path / "terrain_skill_oversized.luau"
+    oversized_script.write_text(
+        fixture.replace("-- INSERT TERRAIN GENERATOR", oversized_generator), encoding="utf-8"
+    )
+    rejected = subprocess.run(  # noqa: S603 - project-owned generator and simulation only.
+        [shutil.which("lute"), "run", str(oversized_script)],
+        cwd=tmp_path,
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+
+    assert rejected.returncode != 0
+    assert "width_voxels is out of bounds" in (rejected.stderr + rejected.stdout)
+
+
 def test_treasure_hunt_template_parses_with_the_pinned_luau_parser() -> None:
     assert LuteSyntaxParser().parse(treasure_hunt_source()) == SyntaxCheckResult(syntax_valid=True)
+
+
+def test_treasure_hunt_template_repeats_rounds_without_duplicate_wins(tmp_path: Path) -> None:
+    server = tmp_path / "server.luau"
+    server.write_text(
+        "return function(game, Instance, task)\n" + treasure_hunt_source() + "\nend\n",
+        encoding="utf-8",
+    )
+    scenario = tmp_path / "treasure_hunt_simulation.luau"
+    scenario.write_text(
+        (Path(__file__).parent / "treasure_hunt_simulation.luau").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    subprocess.run(  # noqa: S603 - repository-owned template and simulation only.
+        [shutil.which("lute"), "run", str(scenario)], check=True, timeout=10, cwd=tmp_path
+    )
 
 
 def test_studio_round_driver_parses_with_the_pinned_luau_parser() -> None:
     repository = Path(__file__).resolve().parents[3]
     source = (repository / "tools/studio_rainforest_round.luau").read_text(encoding="utf-8")
+    assert LuteSyntaxParser().parse(source) == SyntaxCheckResult(syntax_valid=True)
+
+
+def test_studio_treasure_hunt_driver_parses_with_the_pinned_luau_parser() -> None:
+    repository = Path(__file__).resolve().parents[3]
+    source = (repository / "tools/studio_treasure_hunt.luau").read_text(encoding="utf-8")
     assert LuteSyntaxParser().parse(source) == SyntaxCheckResult(syntax_valid=True)
 
 

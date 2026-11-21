@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Blender GLB upload preflight validates primitive triangle counts and rejects a
+  mesh above Roblox's 20,000-triangle limit before any persistent upload.
+- Blender GLB upload preflight rejects uninspected glTF extensions, including
+  compressed geometry, and checks that required-extension declarations are valid.
+- Pinned Pillow image-decoding tests now run in the full local suite; the GLB
+  fixtures use valid PNG scanlines and verify rejection of a JPEG with an
+  unavailable Huffman table.
+- Roblox agent skills now use the native Studio MCP's contextual `skill` and
+  `http_get` references and account for native mesh, material, and procedural
+  model generation alongside remote Blender authoring.
+- Remote Blender GLB export omits `KHR_lights_punctual`, which Roblox's asset
+  preflight rejects; recipe lighting remains in the separate place artifact.
+  The live MCP smoke now explicitly rejects that unsupported extension.
+- World-environment skills now guide bounded native Studio Terrain generation
+  and direct Lighting, Atmosphere, cloud, wind, particle, and audio authoring.
+  The heightfield helper is simulated with pinned Lute; real Studio Terrain
+  behavior remains unverified.
+- Direct Roblox MCP builds can include the reviewed Game Plan; the build host
+  rechecks its gameplay settings and scene requirements against the exact recipe.
 
 - Repository scaffolding: `packages/` (core, api, protocol, sandbox) and `apps/`
   (web, studio-plugin), each with a README stating its boundaries.
@@ -146,15 +165,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `packages/protocol/README.md` now say that no protocol operation enables a script
   and that this does not guarantee agent-authored code cannot execute (ADR-0010).
 
-- The user is told to install Roblox Studio and no other program: the documents and
-  skills no longer call Studio optional. The Studio plugin installs as one file; Rojo
-  and rokit are for contributors.
+- Product documentation now describes the agent-first workflow: remote MCP
+  services build place files, while Studio is for local inspection, editing, and
+  play. No RGA-specific runtime or Blender installation is required from users.
 - ADR-0011 records its decisions of 2026-11-07 (result comparison with the order
   significant, a byte-level retry digest, `invalid_message` for a reused `message_id`,
   snapshot handling, attestation scope). It stays `Proposed` because no plugin has run
   against Studio.
 
 ### Fixed
+
+- The remote Blender and Roblox MCP servers time out a stalled client after 30 s. They
+  admit only 8 and 2 simultaneous requests, so a client that connected and stalled
+  could previously hold every slot; the bundled `Caddyfile` also bounds header and
+  body time. The Roblox MCP README no longer claims proxy rate limits the stock proxy
+  lacks.
+- The Treasure Hunt digest in `docs/status.md` was three characters short;
+  `tests/test_doc_digests.py` now rejects any quoted digest that is not 64 hex
+  characters.
+- The Treasure Hunt verifier accepts the recipe used for a place build, so the
+  standalone rainforest example and the shared checkpoint fixture can both be
+  validated against their own serialized models.
+- Portable planning and coordinator skills now describe the bounded `speed_boost`
+  rule, and the remote MCP smoke verifies the optional Game Plan field and builds
+  with the reviewed plan so plan-to-recipe binding is exercised.
+- The fixed Roblox navigation harness now reports the zero-based index of the
+  first failed route segment, matching the receipt validator and operator UI.
+- The one-player Studio Obby driver accepts a fresh run that begins on checkpoint
+  1, which can happen when the avatar touches its SpawnLocation during spawn.
 - The plugin endpoint no longer passes a negative or non-numeric `Content-Length` to
   `read` (`read(-1)` blocks until the client hangs up); it answers 400 or 413 and
   closes, and the handler has a 30 s socket timeout.
@@ -180,8 +218,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-The engine does not yet build a game end to end. The pieces exist and are tested
-locally (protocol, API, agents, a restricted source policy, remote Blender and Roblox
-services, an operator panel and a Studio plugin), but nothing has been exercised
-against live Roblox, a hosted server or a real model key. Model-written gameplay Luau
-is never executed. See `docs/status.md` and `docs/runbook-live-verification.md`.
+The engine does not yet build and release a production game end to end. Fixed
+gameplay templates have been exercised in local Roblox Studio Play Solo, but
+there is no verified hosted MCP deployment, dedicated Open Cloud test universe,
+or published production workflow. Arbitrary model-written gameplay Luau is never
+executed by the RGA services. See `docs/status.md` and
+`docs/runbook-live-verification.md`.

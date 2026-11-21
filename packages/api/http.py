@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from core.agent_loop import BuildTask
+from core.navigation import navigation_status, validate_failed_leg
 
 from .json_profile import MAX_MESSAGE_BYTES, ProfileError, parse_strict, serialise
 from .roblox_mcp import (
@@ -49,6 +50,7 @@ OPERATOR_WORLD_RECIPE_ENDPOINT = "/v1/operator/world-recipe"
 OPERATOR_WORLD_QUOTE_ENDPOINT = "/v1/operator/world-quote"
 OPERATOR_GAME_PLAN_ENDPOINT = "/v1/operator/game-plan"
 OPERATOR_GAME_PLAN_QUOTE_ENDPOINT = "/v1/operator/game-plan-quote"
+OPERATOR_RELEASE_READINESS_ENDPOINT = "/v1/operator/release-readiness"
 OPERATOR_CODE_PREVIEW_ENDPOINT = "/v1/operator/code-preview"
 OPERATOR_CODE_PREVIEW_QUOTE_ENDPOINT = "/v1/operator/code-preview-quote"
 OPERATOR_STUDIO_ACTION_ENDPOINT = "/v1/operator/studio-action"
@@ -205,7 +207,9 @@ class BlenderMCPGateway(MCPHealthGateway, Protocol):
 
     def apply_recipe(self, recipe: dict[str, Any], request_id: str) -> BlenderArtifactReceipt: ...
 
-    def download_artifact(self, artifact_id: str) -> bytes: ...
+    def download_artifact(
+        self, artifact_id: str, *, expected_sha256: str | None = None
+    ) -> bytes: ...
 
 
 class BlenderArtifactReceipt(Protocol):
@@ -213,6 +217,7 @@ class BlenderArtifactReceipt(Protocol):
     artifact_id: str
     recipe_name: str
     object_count: int
+    artifact_sha256: str
 
 
 class RobloxMCPGateway(MCPHealthGateway, Protocol):
@@ -282,11 +287,28 @@ class _Handler(BaseHTTPRequestHandler):
             if blender_mcp is None:
                 self._operator_error(404, "disabled", "Remote Blender MCP is not configured.")
                 return
+            expected_sha256 = self.server.get_blender_artifact_sha256(  # type: ignore[attr-defined]
+                canonical_id
+            )
+            if expected_sha256 is None:
+                self._operator_error(
+                    404, "not_found", "No verified Blender artifact receipt is available."
+                )
+                return
             try:
-                artifact = blender_mcp.download_artifact(canonical_id)
+                artifact = blender_mcp.download_artifact(
+                    canonical_id, expected_sha256=expected_sha256
+                )
             except Exception:
                 self._operator_error(
                     502, "artifact_unavailable", "The Blender artifact is unavailable."
+                )
+                return
+            if not hmac.compare_digest(hashlib.sha256(artifact).hexdigest(), expected_sha256):
+                self._operator_error(
+                    502,
+                    "artifact_digest_mismatch",
+                    "The Blender artifact does not match its verified receipt.",
                 )
                 return
             self.send_response(200)
@@ -643,6 +665,13 @@ class _Handler(BaseHTTPRequestHandler):
                     "application/json; charset=utf-8",
                     extra_headers={"X-RGA-Run-ID": run_id},
                 )
+            elif self.path == OPERATOR_RELEASE_READINESS_ENDPOINT:
+                if set(payload) != {"plan"}:
+                    raise ValueError("Request must contain one Game Plan object named plan.")
+                from core.release_readiness import review_release_readiness
+
+                review = review_release_readiness(payload["plan"])
+                self._json(200, {"status": "ok", "report": review})
             elif self.path == OPERATOR_CODE_PREVIEW_ENDPOINT:
                 generator = self.server.code_preview_generator  # type: ignore[attr-defined]
                 if generator is None:
@@ -979,6 +1008,8 @@ class _Handler(BaseHTTPRequestHandler):
                     or not isinstance(getattr(receipt, "artifact_id", None), str)
                     or getattr(receipt, "recipe_name", None) != recipe.name
                     or getattr(receipt, "object_count", None) != recipe.rendered_object_count
+                    or not isinstance(getattr(receipt, "artifact_sha256", None), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", receipt.artifact_sha256)
                 ):
                     self._operator_error(
                         502,
@@ -993,6 +1024,7 @@ class _Handler(BaseHTTPRequestHandler):
                         object_count=recipe.rendered_object_count,
                         request_id=payload["request_id"],
                         artifact_id=receipt.artifact_id,
+                        artifact_sha256=receipt.artifact_sha256,
                         remote_host=blender_mcp.audit_host,
                     )
                 except OSError:
@@ -1003,6 +1035,9 @@ class _Handler(BaseHTTPRequestHandler):
                         "persist the audit event.",
                     )
                     return
+                self.server.remember_blender_artifact(  # type: ignore[attr-defined]
+                    receipt.artifact_id, receipt.artifact_sha256
+                )
                 self._json(
                     200,
                     {
@@ -1010,6 +1045,7 @@ class _Handler(BaseHTTPRequestHandler):
                         "recipe_name": recipe.name,
                         "object_count": recipe.rendered_object_count,
                         "artifact_id": receipt.artifact_id,
+                        "artifact_sha256": receipt.artifact_sha256,
                     },
                 )
             elif self.path == OPERATOR_ROBLOX_VALIDATE_ENDPOINT:
@@ -1047,6 +1083,21 @@ class _Handler(BaseHTTPRequestHandler):
                     task_id = str(uuid.UUID(receipt.task_id))
                 except (AttributeError, TypeError, ValueError):
                     task_id = ""
+                try:
+                    expected_navigation_status = navigation_status(
+                        recipe,
+                        getattr(receipt, "path_feature_count", None),
+                        getattr(receipt, "navigation_waypoint_count", None),
+                        getattr(receipt, "navigation_connected", None),
+                    )
+                    validate_failed_leg(
+                        recipe,
+                        expected_navigation_status,
+                        getattr(receipt, "navigation_failed_leg", None),
+                        getattr(receipt, "navigation_waypoint_count", None),
+                    )
+                except (TypeError, ValueError):
+                    expected_navigation_status = None
                 if (
                     getattr(receipt, "request_id", None) != payload["request_id"]
                     or task_id != getattr(receipt, "task_id", None)
@@ -1059,6 +1110,9 @@ class _Handler(BaseHTTPRequestHandler):
                     or type(getattr(receipt, "navigation_connected", None)) is not bool
                     or getattr(receipt, "validation_status", None)
                     not in {"structure_only", "navigation_pass", "navigation_failed"}
+                    or (receipt.validation_status == "navigation_failed")
+                    != (getattr(receipt, "navigation_failed_leg", None) is not None)
+                    or receipt.validation_status != expected_navigation_status
                 ):
                     self._operator_error(
                         502,
@@ -1078,6 +1132,7 @@ class _Handler(BaseHTTPRequestHandler):
                         navigation_waypoint_count=receipt.navigation_waypoint_count,
                         navigation_connected=receipt.navigation_connected,
                         validation_status=receipt.validation_status,
+                        navigation_failed_leg=receipt.navigation_failed_leg,
                         remote_host=roblox_mcp.audit_host,
                     )
                 except (OSError, ValueError):
@@ -1100,6 +1155,7 @@ class _Handler(BaseHTTPRequestHandler):
                             "path_feature_count": receipt.path_feature_count,
                             "navigation_waypoint_count": receipt.navigation_waypoint_count,
                             "navigation_connected": receipt.navigation_connected,
+                            "navigation_failed_leg": receipt.navigation_failed_leg,
                         },
                     },
                 )
@@ -1341,7 +1397,12 @@ class _Handler(BaseHTTPRequestHandler):
                 if not description or len(description) > 1000:
                     raise ValueError("Model description must contain 1-1000 characters.")
                 try:
-                    glb = blender_mcp.download_artifact(ids["artifact_id"])
+                    expected_sha256 = self.server.get_blender_artifact_sha256(  # type: ignore[attr-defined]
+                        ids["artifact_id"]
+                    )
+                    glb = blender_mcp.download_artifact(
+                        ids["artifact_id"], expected_sha256=expected_sha256
+                    )
                     if not 20 <= len(glb) <= MAX_GLB_UPLOAD_BYTES:
                         raise ValueError("Blender artifact exceeds the Roblox Model upload limit.")
                     from .blender_mcp import BlenderMCPClient
@@ -1778,6 +1839,27 @@ class ApiServer(ThreadingHTTPServer):
         self.roblox_place_publish_enabled = bool(roblox_publish_approval_secret and roblox_mcp)
         self._place_artifacts: dict[str, tuple[str, bytes, float]] = {}
         self._place_artifacts_lock = threading.Lock()
+        self._blender_artifacts: dict[str, tuple[str, float]] = {}
+        self._blender_artifacts_lock = threading.Lock()
+
+    def remember_blender_artifact(self, artifact_id: str, digest: str) -> None:
+        """Bind a verified Blender receipt digest to a short-lived operator download."""
+        now = time.monotonic()
+        with self._blender_artifacts_lock:
+            self._blender_artifacts = {
+                key: value for key, value in self._blender_artifacts.items() if value[1] > now
+            }
+            while len(self._blender_artifacts) >= 64:
+                del self._blender_artifacts[next(iter(self._blender_artifacts))]
+            self._blender_artifacts[artifact_id] = (digest, now + 900)
+
+    def get_blender_artifact_sha256(self, artifact_id: str) -> str | None:
+        with self._blender_artifacts_lock:
+            item = self._blender_artifacts.get(artifact_id)
+            if item is None or item[1] <= time.monotonic():
+                self._blender_artifacts.pop(artifact_id, None)
+                return None
+            return item[0]
 
     def remember_place_artifact(self, artifact: RobloxPlaceArtifact) -> None:
         now = time.monotonic()

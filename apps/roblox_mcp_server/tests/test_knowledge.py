@@ -77,6 +77,55 @@ def test_agent_corrects_recipe_and_unwinnable_plan_before_building(rpc):
         "gameplay_mode": "rule_game",
         "gameplay_rules": json.loads((sample / "gameplay-rules.json").read_bytes()),
     }
+    rules = valid["build_settings"]["gameplay_rules"]
+    accepted = rpc(
+        "tools/call",
+        {
+            "name": "rga_build_place",
+            "arguments": {
+                "plan": plan,
+                "recipe": recipe,
+                "request_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                **valid["build_settings"],
+            },
+        },
+    )[1]
+    assert (
+        accepted["result"]["structuredContent"]["gameplay_mode"]
+        == valid["build_settings"]["gameplay_mode"]
+    )
+    mode_mismatch = rpc(
+        "tools/call",
+        {
+            "name": "rga_build_place",
+            "arguments": {
+                "plan": plan,
+                "recipe": recipe,
+                "request_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "gameplay_mode": "obby",
+            },
+        },
+    )[1]["result"]
+    assert mode_mismatch["isError"]
+    assert "do not match" in mode_mismatch["content"][0]["text"]
+    rule_mismatch = rpc(
+        "tools/call",
+        {
+            "name": "rga_build_place",
+            "arguments": {
+                "plan": plan,
+                "recipe": recipe,
+                "request_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "gameplay_mode": "rule_game",
+                "gameplay_rules": [
+                    {**rules[0], "amount": rules[0]["amount"] + 1},
+                    *rules[1:],
+                ],
+            },
+        },
+    )[1]["result"]
+    assert rule_mismatch["isError"]
+    assert "do not match" in rule_mismatch["content"][0]["text"]
 
 
 def test_authenticated_agent_can_discover_and_read_all_packaged_guides_and_schemas(rpc):

@@ -20,7 +20,7 @@ Rationale: [ADR-0006](../architecture/adr/0006-protocol-single-source-of-truth.m
 | Vectors (52 valid, 148 invalid, 42 parse) | written |
 | Python reference checks (`packages/protocol/tests/`) | written; pass locally |
 | CI | **not verified**: the workflows have not run on this change |
-| Plugin-side work-item validation | bounded script-free edit subset is checked before review; full protocol-vector conformance remains **unverified** |
+| Studio plugin validation | strict parser and closed-subset envelope/payload validator pass all shared parse and valid/invalid schema vectors under Lute; installed Roblox Studio runtime validation remains |
 | `approval.request`, `run.log` (API → web) | deferred; adding a message type is compatible |
 | [ADR-0011](../architecture/adr/0011-delivery-execution-and-recovery.md) | proposed; its wire changes and API lifecycle, durable lock, result records and recovery attestation are implemented and exercised by API tests; Studio runtime recovery still needs validation |
 | [ADR-0010](../architecture/adr/0010-script-execution-reach-and-action-semantics.md), [ADR-0012](../architecture/adr/0012-untrusted-text-and-unicode-rendering.md), [ADR-0013](../architecture/adr/0013-conformance-suites.md) | **proposed; not applied** to the schemas, vectors, reference checks or the sections named below |
@@ -597,7 +597,7 @@ in 1 MiB); the byte cap decides, and the sender splits the work.
 `packages/protocol/examples/v1/` holds the vectors; its
 [README](../../packages/protocol/examples/v1/README.md) states their format. They
 are the conformance suite for **every** implementation: the Python reference, the
-future API parser, and the future Luau parser and validator.
+API parser, and the Luau parser and bounded schema validator.
 
 An implementation must agree with each vector on validity, on the stage of the
 failure and on the instance path of it. A failure inside a `oneOf` is reported at
@@ -605,11 +605,12 @@ the `oneOf`'s own path, so a defect in a work item is reported at `/payload/work
 and one in an operation at that operation. `keyword` and `inner` are extra
 precision for the Python tests and are not part of the contract.
 
-Verified today, in Python: the schemas are Draft 2020-12; each stays inside the
-subset; every limit is the documented one; every valid vector validates; every
-invalid vector fails at its declared stage and path, with exactly one defect, and —
-for a `oneOf` — against the branch it names. **Not verified: any Luau
-implementation.**
+Verified in Python: the schemas are Draft 2020-12; each stays inside the subset;
+every limit is the documented one; every valid vector validates; every invalid
+vector fails at its declared stage and path, with exactly one defect, and — for a
+`oneOf` — against the branch it names. The integrated Luau strict parser matches
+the shared parse vectors plus explicit byte-profile cases, and the bounded schema
+validator matches all shared valid/invalid schema vectors under Lute 1.0.0.
 
 ## Layout
 
@@ -629,9 +630,10 @@ packages/protocol/
 
 ## Known limitations
 
-- Full Luau protocol conformance is unverified; the Studio plugin validates its
-  bounded edit subset, but no validator runs the complete protocol vectors
-  inside Luau (ADR-0009).
+- Full Luau protocol semantics remain unverified. Lute covers parsing and the
+  bounded schema subset, not operation-specific semantic checks such as
+  revision ordering, snapshot reconciliation, lifecycle recovery, or parity of
+  diagnostic details. The installed Studio runtime is also unverified (ADR-0009).
 - Agent-authored code can execute in a playtest by paths the schemas do not prevent
   (ADR-0010, proposed); the guarantees are narrower than earlier versions of this
   document stated.

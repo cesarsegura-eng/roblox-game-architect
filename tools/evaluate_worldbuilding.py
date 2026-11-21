@@ -22,6 +22,7 @@ _FIXTURE_NAMES = {
     "coastal-wetland": "coastal-wetland.json",
     "alpine-inn": "alpine-inn.json",
     "mangrove-stilt-house": "mangrove-stilt-house.json",
+    "volcanic-cave-crossing": "volcanic-cave-crossing.json",
     "guard-walk-cycle": "guard-walk-cycle.json",
 }
 

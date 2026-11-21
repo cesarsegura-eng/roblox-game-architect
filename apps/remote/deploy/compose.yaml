@@ -31,6 +31,7 @@ services:
     environment:
       BLENDER_MCP_HOST: 0.0.0.0
       BLENDER_MCP_PORT: 8788
+      BLENDER_MCP_PUBLIC_ORIGIN: https://${BLENDER_DOMAIN:?Set BLENDER_DOMAIN in .env}
       BLENDER_EXECUTABLE: /opt/blender/blender
       BLENDER_MCP_OUTPUT_DIR: /var/lib/rga/artifacts
       RGA_PROJECT_ROOT: /srv/rga

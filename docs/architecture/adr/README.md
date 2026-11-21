@@ -66,3 +66,4 @@ What else was on the table, and why it lost.
 | [0017](0017-standard-library-operator-panel.md) | Standard-library local operator panel | Accepted |
 | [0018](0018-remote-roblox-map-authoring.md) | Remote Roblox map authoring boundary | Accepted |
 | [0019](0019-remote-model-asset-pipeline.md) | Remote Blender model assets into Roblox places | Accepted |
+| [0020](0020-native-studio-mcp-and-existing-agent.md) | Use the user's native Roblox Studio MCP | Accepted |

@@ -3,11 +3,11 @@
 Versioned JSON Schema definitions for every message crossing the Python/Luau
 boundary. The single source of truth for the backend ↔ plugin contract.
 
-**Status: version 1.0 written, verified locally in Python only.** The schemas, the
-vectors and the reference checks exist and their tests pass. The CI workflows have
-not run on them. **Nothing in Luau exists:** the plugin-side parser and validator
-are specified (ADR-0009) and not written, so Luau conformance is *specified, not
-verified*.
+**Status: version 1.0 written.** The strict parser, envelope/payload validator,
+and generated schema registry are integrated into the Studio plugin. The Lute
+1.0.0 integration tests pass the shared parse vectors and full valid/invalid
+schema suite locally. The installed package still needs a live Roblox Studio
+check; hosted CI has not run on this current change.
 
 The specification is [`docs/protocol/README.md`](../../docs/protocol/README.md).
 The reasoning is in
@@ -38,7 +38,7 @@ shape of edits) and
 ```
 schemas/v1/       the contract (20 schema files + version.json)
 examples/v1/      conformance vectors: valid/, invalid/, parse/, index.json
-tests/            what verifies it (Python only)
+tests/            Python schema/reference tests and the Lute-backed Luau parse runner
 ```
 
 `examples/v1/README.md` states the vector format.
@@ -50,10 +50,14 @@ From the repository root, as CI does:
 ```
 uv sync --locked --extra dev
 uv run pytest packages/protocol
+uv run pytest -m integration \
+  packages/protocol/tests/test_luau_conformance.py \
+  packages/protocol/tests/test_luau_schema_conformance.py
 ```
 
 They need `jsonschema`, which is in the `dev` extra and nowhere else. Nothing in
-`tests/` is importable by production code, on purpose.
+`tests/` is importable by production code, on purpose. The integration test also
+needs the pinned Lute 1.0.0 executable on `PATH`.
 
 - `test_schemas.py` — the schemas are valid Draft 2020-12; each stays inside the
   closed subset (and the audit is shown to reject bad schemas); the reference graph
@@ -68,8 +72,9 @@ They need `jsonschema`, which is in the `dev` extra and nowhere else. Nothing in
 
 ## Known risks
 
-- **Luau conformance is unverified.** The parser and validator are the plugin
-  stage's first task, and the vectors are what they must pass.
+- **Live Studio runtime conformance remains.** The parser and schema validator
+  pass all shared vectors under Lute; verify the installed package in Roblox
+  Studio to confirm runtime support for its Luau libraries and ModuleScripts.
 - A Luau JSON parser may be slow. The 1 MiB cap bounds it and it has not been
   measured.
 - Closed `enum`s and bounds cannot be widened inside a major version, and the

@@ -57,6 +57,13 @@ whether the player can read the next room from the threshold. Use a framed view,
 light change, or partial occlusion to reveal a destination; keep a safe refuge
 and the next route legible when tension or risk is part of the game.
 
+Build a doorway into the wall geometry rather than placing an opening-shaped
+solid over a continuous wall. For a blockout, use separate wall sections on each
+side and a header above the aperture, or author one mesh whose faces stop around
+the opening. Keep the walk-through volume clear of furniture, trim, collision,
+and decorative markers. Check width and height with the target avatar and camera
+before adding a door leaf or frame.
+
 Review the floor plan from above and from the player camera. A room is not useful
 just because its outline fits: it needs a clear purpose, traversable dimensions,
 and a composition that reads while moving.
@@ -66,6 +73,11 @@ and a composition that reads while moving.
 - Establish a primary light direction and a value hierarchy: route/objective,
   landmark, then background. Reserve the strongest contrast for important play
   information and maintain readable silhouettes in shadow.
+- Separate global light from local light. Set global time, ambient color, and
+  shadow style to establish the scene; use a small number of local sources to
+  motivate lamps, fires, or interaction targets. For an interior, test the
+  global outdoor contribution through openings before adding more point lights;
+  check the transition from daylight to room lighting at the entrance.
 - Give each major area a small palette tied to materials and site conditions.
   Use area-to-area shifts to help navigation, not to make every prop compete.
 - Use fog, precipitation, wind, and particles only when they reinforce distance,
@@ -76,16 +88,21 @@ and a composition that reads while moving.
 - Check lighting and sound across the intended time/weather states and device
   quality levels. A beautiful still frame is not enough if the route or required
   sound becomes unreadable during play.
+- Reserve a final performance pass for an assembled, playable place. Use Scene
+  Analysis and MicroProfiler on representative devices to find rendering and
+  physics hotspots; review shadow casting, excess geometry and texture copies,
+  and layered foliage transparency. Do not infer runtime performance from the
+  source recipe's object or triangle counts alone.
 
 ## Tool boundary and handoff
 
 The current scene recipe supports simple lights and materials, but not audio
-emitters, particles, terrain sculpting, volumetric weather, complex material
+emitters, particles, Roblox Terrain sculpting, volumetric weather, complex material
 nodes, or scripted ambience. A generated recipe should make its geometry and
 basic light pass explicit, then list unsupported atmosphere work as a later
 authoring handoff. Do not imply those effects were created by the recipe or
-require the end user to install Studio; an authorized operator may use it for
-optional inspection.
+require the end user to install Studio. For direct work in the open place, use
+the user's native Studio MCP when available and supported by its tools.
 
 Roblox's environmental art curriculum documents greyboxing, polishing assets,
 assembling a reusable library, constructing the world, and optimization. Its
@@ -96,6 +113,13 @@ listeners, routing, and effects; the current scene recipe cannot create those
 audio objects, so the generated scene must carry them as an explicit handoff to
 a service or authoring workflow instead of implying that ambience was built.
 See the source index for links.
+
+For direct editing or playtesting in the user's open place, use the native
+Studio MCP connection already configured for that agent, if it supports the
+needed operations. Do not install the project's local Studio compatibility
+plugin or configure another Roblox MCP connection to enable direct access.
+Separately hosted RGA recipe services create artifacts and do not edit or test
+the open Studio session.
 
 Production references reinforce the order of work: Riot's environment-art
 overview stresses prioritizing layout and assets around the intended player

@@ -26,7 +26,9 @@ dev = [
   "pytest>=9.2,<10",
   "pytest-env>=1.8.4,<2", # provides the [tool.pytest.ini_options] env setting
   "jsonschema>=4.26,<5",  # validates packages/protocol schemas (Draft 2020-12); tests only
+  "Pillow==13.0.0",       # exercise full bounded PNG/JPEG decode in model upload tests
 ]
+roblox-assets = ["Pillow==13.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/cesarsegura-eng/roblox-game-architect"
@@ -37,6 +39,9 @@ Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
 # listed, so they are never installed as a package. Add entries here as
 # packages/ gains real code.
 [tool.setuptools]
+# Runtime resources are enumerated explicitly below. Do not infer packages from
+# resource-only folders such as web/, schemas/, skillpacks/, or lute/.
+include-package-data = false
 packages = ["api", "core", "core.llm", "sandbox", "apps", "apps.blender_mcp_server", "apps.roblox_mcp_server"]
 
 [tool.setuptools.package-dir]

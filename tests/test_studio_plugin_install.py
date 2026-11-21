@@ -1,27 +1,37 @@
-"""The Studio plugin must stay installable as one loose file.
+"""The Studio plugin package includes protocol validation without user tooling."""
 
-A user installs Roblox Studio and nothing else. If the plugin were split into
-modules it would need a build tool (Rojo, via rokit) just to be installed, so
-the single-file shape is protected here rather than left to convention.
-"""
-
-import re
 from pathlib import Path
+
+from tools.package_luau_protocol_schemas import OUTPUT, render
 
 PLUGIN_SOURCE = Path(__file__).resolve().parent.parent / "apps" / "studio-plugin" / "src"
 
 
-def test_plugin_source_is_exactly_one_file() -> None:
-    files = sorted(path.name for path in PLUGIN_SOURCE.iterdir() if path.name != ".gitkeep")
+def test_plugin_source_contains_main_and_strict_protocol_parser() -> None:
+    files = sorted(
+        path.relative_to(PLUGIN_SOURCE).as_posix()
+        for path in PLUGIN_SOURCE.rglob("*")
+        if path.is_file() and path.name != ".gitkeep"
+    )
 
-    assert files == ["Main.plugin.lua"]
+    assert files == [
+        "Main.plugin.lua",
+        "Protocol/SchemaValidator.lua",
+        "Protocol/Schemas.lua",
+        "Protocol/StrictJson.lua",
+    ]
 
 
-def test_plugin_does_not_load_other_modules() -> None:
+def test_plugin_loads_only_its_bundled_protocol_parser() -> None:
     source = (PLUGIN_SOURCE / "Main.plugin.lua").read_text(encoding="utf-8")
-    # `require` of a sibling ModuleScript or of a script-relative path would make
-    # a loose, single-file install impossible.
     code = "\n".join(line.split("--", 1)[0] for line in source.splitlines())
 
-    assert re.search(r"\brequire\s*\(", code) is None
-    assert "script.Parent" not in code
+    assert 'require(script.Parent:WaitForChild("Protocol"):WaitForChild("StrictJson"))' in code
+    assert 'require(script.Parent:WaitForChild("Protocol"):WaitForChild("Schemas"))' in code
+    assert 'require(script.Parent:WaitForChild("Protocol"):WaitForChild("SchemaValidator"))' in code
+    assert "SchemaValidator.message(" in code
+    assert "HttpService:JSONDecode" not in code
+
+
+def test_bundled_protocol_schemas_are_generated_from_the_contract() -> None:
+    assert OUTPUT.read_text(encoding="utf-8") == render()

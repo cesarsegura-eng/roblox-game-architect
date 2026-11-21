@@ -55,7 +55,7 @@ def check(place: Path, lute: str) -> None:
     with tempfile.TemporaryDirectory(prefix="rga-round-") as temporary:
         root = Path(temporary)
         (root / "server.luau").write_text(
-            "return function(game, Instance, task, UDim2, Color3)\n"
+            "return function(game, Instance, task, UDim2, Color3, Enum)\n"
             + rule_game_source()
             + "\nend\n",
             encoding="utf-8",

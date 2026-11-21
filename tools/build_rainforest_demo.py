@@ -26,7 +26,7 @@ def build(output: Path) -> Path:
     roblox.check_connection()
     run_id = str(uuid.uuid4())
     art = blender.apply_recipe(recipe, run_id)
-    glb = blender.download_artifact(art.artifact_id)
+    glb = blender.download_artifact(art.artifact_id, expected_sha256=art.artifact_sha256)
     place = roblox.build_place(recipe, run_id, gameplay_mode="rule_game", gameplay_rules=rules)
     # The manifest is written last. Its presence marks a complete pair of downloads.
     folder = output / run_id

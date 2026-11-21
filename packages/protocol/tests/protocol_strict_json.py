@@ -6,9 +6,10 @@ Infinity and 1e999, keeps the last of two duplicate keys, and accepts lone surro
 Luau's HttpService:JSONDecode is undocumented on all of these and silently drops null.
 
 A message that does not parse under this profile never reaches schema validation. Every
-implementation (this one, the future API parser, the future Luau parser) must give the same
-accept/reject answer on the vectors in examples/v1/. The Luau parser does not exist yet, so
-Luau conformance is specified but NOT verified.
+implementation (this one, the future API parser, and the Studio plugin's strict Luau parser)
+must give the same accept/reject answer on the vectors in examples/v1/. The Studio plugin's
+parser and schema validator pass the shared suites under Lute; installed Studio runtime
+conformance remains NOT verified.
 """
 
 import json

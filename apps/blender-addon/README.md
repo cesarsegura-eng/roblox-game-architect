@@ -47,7 +47,9 @@ key. The add-on validates the whole recipe before modifying the Blender scene.
 Exports refuse to overwrite an existing file and never upload or publish assets.
 
 The character generator builds a generic NPC skeleton and rigidly weighted
-stylized parts, with loop-compatible idle, walk, run, and jump action presets. The jump cycle
+stylized parts, with balanced, heroic, slender, and round silhouette presets
+and loop-compatible idle, walk, run, and jump action presets. Silhouette presets
+adjust bounded mesh proportions while keeping the same generic skeleton. The jump cycle
 animates root-bone height through takeoff, airborne pose, and landing. It is a blockout for
 proportion, motion, and export iteration; it is not a Roblox R15 avatar rig or a
 production deformation mesh. Roblox Studio's Importer supports glTF rigging,
@@ -65,8 +67,10 @@ update both validators and the schema together when the recipe version changes.
 ## Verify the installed Blender integration
 
 Run the Blender-side smoke check with a real Blender executable. It imports the
-recipe into a separate generated collection, creates the walk rig, exports a
-GLB, and inspects the GLB container for mesh, skin, and animation data:
+recipe into a separate generated collection, creates heroic, round, and slender
+character rigs, and checks their proportions and animation clips in a GLB
+round-trip. It also verifies embedded JPEG decoding and the Roblox asset
+preflight:
 
 ```powershell
 & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" `
@@ -85,7 +89,8 @@ the pinned 5.2.3 container CI job has not yet run green on this checkout.
 ## Integration boundary
 
 The core exposes `WorldDesignAgent` and three project skill packs. Character
-entries are data-only (`name`, `motion`, `location`, `scale`) and use fixed
+entries are data-only (`name`, `motion`, `location`, `scale`, and optional
+`silhouette`) and use fixed
 trusted geometry and animation presets; they do not carry Blender code. The operator
 CLI can call Anthropic under the per-session spend cap; `fake` remains the
 offline default. The Blender extension imports the resulting local JSON recipe.
