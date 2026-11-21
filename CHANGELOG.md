@@ -182,6 +182,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The first hosted CI run on this tree exposed five failures, all fixed here:
+  the Rojo-dependent MCP knowledge test now skips when `rojo` is absent, the
+  way the Lute tests already did, and the job that installs the toolchain runs
+  it instead; `rokit install` uses `--no-trust-check`, without which it stops
+  to ask whether StyLua is trusted and no one can answer; the Caddy config
+  check names the `caddy` binary, since the image's entrypoint is not it; the
+  Blender download retries, because `download.blender.org` rate-limits
+  datacenter ranges and the build failed on `curl` exit 22; and `.gitleaks.toml`
+  allowlists two fixed test literals by value, so a real credential in the same
+  file would still be reported.
+
 - The remote Blender and Roblox MCP servers time out a stalled client after 30 s. They
   admit only 8 and 2 simultaneous requests, so a client that connected and stalled
   could previously hold every slot; the bundled `Caddyfile` also bounds header and

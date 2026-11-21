@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN set -eu; \
     base="https://download.blender.org/release/Blender5.2"; \
     archive="blender-${BLENDER_VERSION}-linux-x64.tar.xz"; \
-    curl --fail --location --silent --show-error "$base/$archive" -o /tmp/blender.tar.xz; \
-    curl --fail --location --silent --show-error "$base/blender-${BLENDER_VERSION}.sha256" -o /tmp/blender.sha256; \
+    get() { curl --fail --location --silent --show-error --retry 5 --retry-delay 5 \
+        --retry-all-errors --connect-timeout 30 "$1" -o "$2"; }; \
+    get "$base/$archive" /tmp/blender.tar.xz; \
+    get "$base/blender-${BLENDER_VERSION}.sha256" /tmp/blender.sha256; \
     grep "$archive" /tmp/blender.sha256 | sha256sum --check --status -; \
     mkdir -p /opt/blender; \
     tar --extract --xz --file /tmp/blender.tar.xz --directory /opt/blender --strip-components=1; \

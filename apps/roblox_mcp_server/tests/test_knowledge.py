@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import shutil
 import threading
 from pathlib import Path
 
@@ -46,6 +47,8 @@ def rpc():
             worker.join(timeout=2)
 
 
+@pytest.mark.integration
+@pytest.mark.skipif(shutil.which("rojo") is None, reason="Rojo is not installed")
 def test_agent_corrects_recipe_and_unwinnable_plan_before_building(rpc):
     sample = Path(__file__).resolve().parents[3] / "examples/worlds/rainforest-checkpoint-obby"
     plan = json.loads((sample / "game-plan.json").read_bytes())
