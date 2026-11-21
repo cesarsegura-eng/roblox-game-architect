@@ -189,6 +189,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   all. The archive now keeps its published name, and the build prints the `OK`
   line as evidence that the hash was checked.
 
+- The pinned-toolchain CI job verifies Rojo as it already verified Lute: its last
+  step builds places with Rojo, so a broken toolchain is now named at the top of
+  the job instead of surfacing minutes later as a failed build. The Blender
+  container smoke prints the service's logs when it fails, which is what a
+  closed connection otherwise hides.
 - The first hosted CI run on this tree exposed five failures, all fixed here:
   the Rojo-dependent MCP knowledge test now skips when `rojo` is absent, the
   way the Lute tests already did, and the job that installs the toolchain runs

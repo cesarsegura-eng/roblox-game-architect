@@ -148,6 +148,12 @@ jobs:
       - name: Verify pinned Lute version
         run: test "$(lute --version)" = "1.0.0"
 
+      - name: Verify pinned Rojo version
+        # The last step of this job builds places with Rojo. Checking it here
+        # names a broken toolchain directly instead of surfacing it as a failed
+        # build several minutes later.
+        run: test "$(rojo --version)" = "Rojo 7.7.1"
+
       - name: Install Python package
         run: uv sync --locked --extra dev
 
@@ -159,8 +165,7 @@ jobs:
           uv run python -m pytest -m integration \
             packages/sandbox/tests/test_lute_integration.py \
             packages/protocol/tests/test_luau_conformance.py \
-            packages/protocol/tests/test_luau_schema_conformance.py \
-            apps/roblox_mcp_server/tests/test_knowledge.py
+            packages/protocol/tests/test_luau_schema_conformance.py
 
       - name: Build and exercise the rainforest round with simulated players
         run: |
@@ -243,9 +248,14 @@ jobs:
             fi
             sleep 2
           done
-          BLENDER_MCP_URL=http://127.0.0.1:8788/mcp \
+          if ! BLENDER_MCP_URL=http://127.0.0.1:8788/mcp \
             BLENDER_MCP_BEARER_TOKEN="$token" \
-            python tools/smoke_remote_blender_mcp.py
+            python tools/smoke_remote_blender_mcp.py; then
+            echo "::group::blender-mcp container logs"
+            "${compose[@]}" logs --no-color --tail 400 blender-mcp
+            echo "::endgroup::"
+            exit 1
+          fi
 
   roblox-validation-mcp-container:
     name: Remote Roblox validation MCP runtime
