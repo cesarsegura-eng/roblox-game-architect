@@ -139,11 +139,18 @@ jobs:
         # to ask whether each tool is trusted, and nothing can answer.
         run: rokit install --no-trust-check
 
-      - name: Prefer the pinned Lute binary over Rokit shims
+      - name: Prefer the pinned binaries over Rokit shims
+        # A Rokit shim resolves its tool from a manifest in the working directory,
+        # so it fails wherever there is none: the place builder runs Rojo with its
+        # cwd in a temporary directory, and the shim answers "Failed to find tool
+        # 'rojo' in any project manifest file". The real binaries have no such tie.
         run: |
           lute_dir="$HOME/.rokit/tool-storage/luau-lang/lute/1.0.0"
+          rojo_dir="$HOME/.rokit/tool-storage/rojo-rbx/rojo/7.7.1"
           test -x "$lute_dir/lute"
+          test -x "$rojo_dir/rojo"
           echo "$lute_dir" >> "$GITHUB_PATH"
+          echo "$rojo_dir" >> "$GITHUB_PATH"
 
       - name: Verify pinned Lute version
         run: test "$(lute --version)" = "1.0.0"

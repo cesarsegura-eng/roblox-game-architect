@@ -91,6 +91,14 @@ selene generate-roblox-std
 
 Review the resulting `roblox.yml` diff before committing it.
 
+## Before you change code
+
+Check [`docs/read-before-changing.md`](docs/read-before-changing.md) for the
+file you are about to edit. It records the implementation details that look
+arbitrary and are not, what breaks if they change, and how each was
+established. Simpler implementations are welcome; the entries name the
+property that has to survive.
+
 ## Checks
 
 Run these before pushing. CI runs the same ones.

@@ -37,6 +37,7 @@ Do not restate these elsewhere. Update the owner.
 | The wire contract | `packages/protocol/schemas/v1/` then `docs/protocol/README.md` |
 | The execution boundary and approvals | `docs/safety.md` |
 | What changed | `CHANGELOG.md` under `[Unreleased]` |
+| Why a load-bearing detail is shaped the way it is | `docs/read-before-changing.md` |
 
 ## The habit that defines this repository
 
@@ -115,6 +116,14 @@ the wheel audit and the plugin validation.
 - **The repository is public.** Scan before pushing; `.gitleaks.toml` allowlists
   a few fixed test literals **by value**, so a real credential in a test file is
   still caught.
+
+## Before you edit a file
+
+Check `docs/read-before-changing.md` for it. Some of what looks arbitrary in
+this tree is load-bearing: an untrusted-text boundary, a frozen enum, a copy
+that must not become a rename. Each entry says what breaks and how that was
+established, so you can change it deliberately or leave it alone deliberately.
+Simplification is welcome; the entries name the property to keep, not the code.
 
 ## Staying on the subject
 
