@@ -182,6 +182,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Hosted CI is green on this tree for the first time (run 12, commit `3a9aef7`):
+  all eight CI jobs and both security jobs, including the three that had never
+  run anywhere. That run is also what verifies the cross-device artifact publish
+  and the Blender archive checksum, neither of which can be exercised on a
+  developer machine with one filesystem.
+- The pinned-toolchain CI job puts the real Rojo binary ahead of Rokit's shims,
+  as it already did for Lute. A shim resolves its tool from a manifest in the
+  working directory, and the place builder runs Rojo with its working directory
+  in a temporary folder, where there is none: the shim answered `Failed to find
+  tool 'rojo' in any project manifest file` while `rojo --version` passed at the
+  repository root. It does not reproduce on a machine whose Rokit root carries a
+  global manifest of its own.
+
 - The remote Blender MCP service could not publish an artifact when its job
   directory and its artifact store were different filesystems, which is how the
   container runs them: `/tmp` is a tmpfs and the store is a volume, and a rename

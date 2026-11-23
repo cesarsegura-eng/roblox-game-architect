@@ -37,9 +37,13 @@ a dedicated test universe and place.
       loopback access enabled, and the pinned Lute binary ahead of the
       working-directory-sensitive Rokit shims on `PATH`. Hosted CI still needs
       a green run on this tree.
-- [ ] Push the branch to a **private** GitHub repository so CI runs the jobs that
-      have never run (Windows sandbox limits, Blender and Roblox containers).
-      **Proof:** one green run on the pushed commit.
+- [x] Run CI on the branch so the jobs that had never run anywhere do run:
+      Windows sandbox limits, the Blender container and the Roblox container.
+      **Proof:** [run 12](https://github.com/cesarsegura-eng/roblox-game-architect/actions/runs/45229635041) on commit `3a9aef7`, every job green, including
+      the Blender Compose build and smoke and the fixed-template place build.
+      The branch went to the project's own **public** repository rather than a
+      private one, after a scan found no `.env`, no credential pattern in the
+      diff, and `.gitleaks.toml` reporting clean.
 - [ ] Before publishing the Claude Code marketplace entry, confirm the public
       `privacyPolicyUrl` in `apps/claude-code-plugin/.claude-plugin/plugin.json`
       resolves to the exact `PRIVACY.md` from the published revision and that the
