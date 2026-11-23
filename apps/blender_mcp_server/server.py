@@ -14,6 +14,7 @@ import http.server
 import json
 import os
 import re
+import shutil
 import socket
 import sqlite3
 import struct
@@ -321,7 +322,12 @@ class BlenderSceneRenderer:
                 self._validate_glb(temporary_glb)
                 if existing_artifact_sha256 is None:
                     staging_path = artifact_path.with_suffix(".glb.tmp")
-                    temporary_glb.replace(staging_path)
+                    # The job directory and the artifact store are not always the
+                    # same filesystem: in the container /tmp is a tmpfs and the store
+                    # is a volume, and a rename cannot cross one (EXDEV). Copy into
+                    # the destination directory first, then publish with a replace
+                    # that stays on one filesystem and so is still atomic.
+                    shutil.copyfile(temporary_glb, staging_path)
                     staging_path.replace(artifact_path)
                 self._prune_artifacts(db, int(time.time()), preserve_artifact=artifact_id)
 

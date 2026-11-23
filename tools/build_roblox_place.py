@@ -59,6 +59,12 @@ def main() -> int:
         args.output.write_bytes(artifact.place_file)
     except (OSError, UnicodeError, json.JSONDecodeError, RobloxPlaceBuildError) as exc:
         print(f"Place build failed: {exc}", file=sys.stderr)
+        output = getattr(exc, "tool_output", "")
+        if output:
+            # Untrusted: this is the build tool's own text, shown here because a
+            # developer running this command needs to see why it failed.
+            print("--- build tool output (untrusted) ---", file=sys.stderr)
+            print(output, file=sys.stderr)
         return 2
 
     digest = hashlib.sha256(artifact.place_file).hexdigest()

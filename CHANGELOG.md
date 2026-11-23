@@ -182,6 +182,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The remote Blender MCP service could not publish an artifact when its job
+  directory and its artifact store were different filesystems, which is how the
+  container runs them: `/tmp` is a tmpfs and the store is a volume, and a rename
+  cannot cross one (`OSError: [Errno 18] Invalid cross-device link`). The GLB is
+  copied into the destination directory and published with a replace that stays
+  on one filesystem, so the publish is still atomic. Found by the first CI run
+  that ever started this container.
+- A failed Rojo place build now carries the tool's own output on the exception,
+  so the developer command can print it. The message is unchanged, so the MCP
+  server keeps answering with its fixed template and never relays that text to a
+  client; a test pins that boundary.
+
 - The Blender container never verified the archive it downloaded. `sha256sum
   --check` reads each file name from the checksum line, and the build saved the
   tarball under a different name, so the check could not find its input and

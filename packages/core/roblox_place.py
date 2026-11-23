@@ -35,8 +35,22 @@ _NAME = re.compile(r"[^A-Za-z0-9 _-]+", re.ASCII)
 _FORBIDDEN_CLASSES = frozenset({"Script", "LocalScript", "ModuleScript", "Actor"})
 
 
+# What a local developer tool may print from a failed build. Bounded because the
+# text is untrusted and a build tool can be noisy.
+MAX_TOOL_OUTPUT_CHARS = 2000
+
+
 class RobloxPlaceBuildError(ValueError):
-    """A bounded scene recipe could not be serialized into a Roblox place."""
+    """A bounded scene recipe could not be serialized into a Roblox place.
+
+    `tool_output` carries what the build tool printed, for a local developer tool
+    to show. It is **untrusted**: it can echo recipe-derived names, so it stays
+    out of the message and never reaches a protocol client.
+    """
+
+    def __init__(self, message: str, *, tool_output: str = "") -> None:
+        super().__init__(message)
+        self.tool_output = tool_output
 
 
 @dataclass(frozen=True, slots=True)
@@ -572,7 +586,10 @@ class RojoPlaceBuilder:
             except (OSError, subprocess.TimeoutExpired) as exc:
                 raise RobloxPlaceBuildError("Rojo place build failed or timed out") from exc
             if result.returncode != 0 or not output_path.is_file():
-                raise RobloxPlaceBuildError("Rojo could not build the generated place project")
+                raise RobloxPlaceBuildError(
+                    "Rojo could not build the generated place project",
+                    tool_output=(result.stderr or result.stdout or "")[:MAX_TOOL_OUTPUT_CHARS],
+                )
             place_file = output_path.read_bytes()
         if not place_file.startswith(b"<roblox") or len(place_file) > MAX_PLACE_FILE_BYTES:
             raise RobloxPlaceBuildError("Rojo produced an invalid or oversized place file")

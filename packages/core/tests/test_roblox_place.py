@@ -571,3 +571,18 @@ def test_world_brief_hazards_require_hazard_scene_objects(word: str):
     from core.worldbuilding import _required_scene_roles
 
     assert "hazard" in _required_scene_roles(f"A Roblox world with {word} on the course")
+
+
+def test_build_error_keeps_tool_output_out_of_its_message():
+    """The server answers with the message; the tool output is for a local tool only."""
+    error = RobloxPlaceBuildError(
+        "Rojo could not build the generated place project",
+        tool_output="failed on instance 'Recipe Derived Name'",
+    )
+    assert str(error) == "Rojo could not build the generated place project"
+    assert "Recipe Derived Name" not in str(error)
+    assert error.tool_output == "failed on instance 'Recipe Derived Name'"
+
+
+def test_build_error_without_tool_output_still_reads_as_a_plain_error():
+    assert RobloxPlaceBuildError("nope").tool_output == ""
