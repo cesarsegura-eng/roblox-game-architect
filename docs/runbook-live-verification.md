@@ -53,6 +53,10 @@ Rokit's shims fail from some shells (`The system cannot find the path specified 
 error 3)`) unless `ROKIT_ROOT` points at the toolchain directory. Either set it, or
 put the real binaries first on `PATH`. From the repository root in Git Bash:
 
+`. tools/dev-env.sh` does the same thing from the pins in `aftman.toml` and
+checks each reported version. The explicit form is kept here because it shows
+what the script does:
+
 ```sh
 T="$PWD/.tools/rokit-root/tool-storage"
 export PATH="$T/rojo-rbx/rojo/7.7.1:$T/luau-lang/lute/1.0.0:$T/kampfkarren/selene/0.32.0:$T/johnnymorganz/stylua/2.6.0:$PATH"
