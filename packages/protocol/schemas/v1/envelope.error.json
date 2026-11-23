@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/envelope.error.json",
+  "description": "Untyped error response, for requests whose type could not be determined (unknown_type, unparseable input). correlation_id is absent when the request had no usable message_id.",
+  "type": "object",
+  "properties": {
+    "protocol_version": {
+      "$ref": "common.json#/$defs/protocol_version"
+    },
+    "kind": {
+      "type": "string",
+      "const": "response"
+    },
+    "message_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "correlation_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "session_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "status": {
+      "type": "string",
+      "const": "error"
+    },
+    "sent_at": {
+      "$ref": "common.json#/$defs/timestamp_ms"
+    },
+    "payload": {
+      "description": "Opaque at this stage. Validated in stage 2 against the payload schema selected by type, kind and status (docs/protocol/README.md)."
+    }
+  },
+  "required": [
+    "protocol_version",
+    "kind",
+    "message_id",
+    "status",
+    "payload"
+  ],
+  "additionalProperties": false
+}

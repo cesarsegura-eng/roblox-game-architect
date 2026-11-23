@@ -1,0 +1,9 @@
+{
+  "description": "Nothing to parse.",
+  "message_raw": "",
+  "expect": {
+    "valid": false,
+    "stage": "parse",
+    "reason": "invalid_json"
+  }
+}

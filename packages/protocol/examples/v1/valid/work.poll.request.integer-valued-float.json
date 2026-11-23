@@ -1,0 +1,7 @@
+{
+  "description": "1730000000000.0 is an integer for the schema: Luau cannot tell 1.0 from 1, so neither may a validator.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"m-0100\",\"session_id\":\"s-0001\",\"sent_at\":1730000000000.0,\"payload\":{}}",
+  "expect": {
+    "valid": true
+  }
+}

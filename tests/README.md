@@ -1,20 +1,24 @@
-# tests/ — integration and end-to-end
+# tests/ — repository and cross-component tests
 
 **Unit tests do not live here.** They live next to the code they test, in
 `packages/<name>/tests/`. Tests placed beside the code get maintained, because
 you see them while editing it; distant tests get abandoned
 ([ADR-0001](../docs/architecture/adr/0001-monorepo-layout.md)).
 
-This directory is for tests that cross a boundary.
+This directory contains tests that cross a boundary or verify the repository as
+a distributable product. It does not contain the whole end-to-end game loop.
 
 ```
-test_scaffolding.py   checks on the repository itself (see below)
-integration/          contract tests across the Python/Luau boundary
-e2e/                  the full loop: request -> plan -> generate -> validate -> run -> review
+test_scaffolding.py       repository hygiene and test configuration
+test_api_e2e.py           API transport, approval, delivery and result lifecycle
+test_build_roblox_place.py fixed-mode place artifact CLI
+test_agent_skills.py       portable skill synchronization and packaging
 ```
 
-**Status:** `integration/` and `e2e/` are empty — nothing to integrate yet.
-`test_scaffolding.py` is the one suite that runs today.
+Protocol schema and reference-vector tests live beside the protocol package in
+`packages/protocol/tests/`. Package-specific integration tests live beside the
+components they exercise. These suites do not yet prove a complete game loop
+through an existing agent, hosted MCP services, Roblox Studio play, and review.
 
 ## `test_scaffolding.py`
 
@@ -40,15 +44,36 @@ from a Windows checkout, and a lint config that could not run.
 
 - Everything here must pass with `LLM_PROVIDER=fake` (invariant I7). A test that
   needs a paid API key is not a test CI can rely on.
-- Protocol tests belong in `integration/` and should validate real messages
-  against the schemas in `packages/protocol`, in both directions — the point is
-  to catch drift, so testing only the Python side defeats it.
+- Protocol tests belong in `packages/protocol/tests/` and should validate real
+  messages against the schemas in `packages/protocol`, in both directions — the
+  point is to catch drift, so testing only the Python side defeats it.
 - Luau unit tests use TestEZ and live in `apps/studio-plugin/tests/`, not here.
 
 ## The evaluation suite
 
-Separate from these tests and not yet built: a set of fixed cases, with
-`examples/` as input, that measures whether a change to a prompt or an agent
-improves or regresses behaviour. Stage 7 on the
-[roadmap](../README.md#roadmap). Without it, engine changes cannot be reviewed
-on evidence.
+The offline fixed-case evaluator exists as
+[`tools/evaluate_worldbuilding.py`](../tools/evaluate_worldbuilding.py). It
+measures bounded scene-generation structure against reviewed examples at zero
+provider spend. It does not grade visual quality, Studio playability, live
+provider behavior, or production readiness. Stage 7 on the
+[roadmap](../README.md#roadmap) remains in progress until those gaps are covered.
+
+The rainforest Obby also has two complementary play checks. The pinned-Lute
+simulation at
+[`tools/check_rainforest_obby.py`](../tools/check_rainforest_obby.py) exercises
+the trusted template with mocked services; the developer-only
+[`tools/studio_rainforest_obby.luau`](../tools/studio_rainforest_obby.luau)
+driver checks real touch, respawn, and `PathfindingService` route behavior in a
+fresh one-player Studio Play Solo session. Run it from the **Server** command
+bar only, and stop the session without saving. Its mechanic checks teleport the
+player, so they do not prove manual walking/control playability; neither check
+proves multiplayer engine behavior, persistence, or live-server readiness.
+
+[`tools/studio_rainforest_obby_multiplayer.luau`](../tools/studio_rainforest_obby_multiplayer.luau)
+is the companion two-client Studio driver. Run it from the **Server** command
+bar in a fresh local Server & Clients session configured for exactly two
+clients. It checks per-player checkpoint isolation, separate finish awards,
+duplicate finish handling, hazard elimination, respawn locations, and retained
+stats. It teleports characters to trigger parts, so it does not test normal
+controls. This driver is linted in CI but has not yet passed in the Studio
+engine; multiplayer engine behavior remains unverified.

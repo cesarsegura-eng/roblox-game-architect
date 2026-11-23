@@ -1,0 +1,35 @@
+{
+  "description": "indeterminate with partial knowledge: applied, then one operation whose effect could not be determined, then skipped (ADR-0011, section 9).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.result",
+    "message_id": "m-0104",
+    "session_id": "s-0002",
+    "sent_at": 1730000000400,
+    "payload": {
+      "action_id": "a-0002",
+      "outcome": "indeterminate",
+      "operations": [
+        {
+          "op_id": "o1",
+          "status": "applied"
+        },
+        {
+          "op_id": "o2",
+          "status": "unknown"
+        },
+        {
+          "op_id": "o3",
+          "status": "skipped"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -110,3 +110,34 @@ def test_lockfile_exists():
     assert (REPO_ROOT / "uv.lock").is_file(), (
         "uv.lock is missing — run `uv lock` and commit it (CONTRIBUTING.md)"
     )
+
+
+def test_remote_tool_images_exclude_deployment_secrets():
+    """Compose env files are host inputs and must never enter either image."""
+    cases = (
+        (
+            "apps/blender_mcp_server/Dockerfile.dockerignore",
+            "**/server.env",
+            None,
+        ),
+        (
+            "apps/roblox_mcp_server/Dockerfile.dockerignore",
+            "apps/roblox_mcp_server/deploy/server.env",
+            "!apps/roblox_mcp_server/**",
+        ),
+    )
+    for ignore_path, secret_pattern, allow_pattern in cases:
+        patterns = (REPO_ROOT / ignore_path).read_text(encoding="utf-8").splitlines()
+        assert secret_pattern in patterns
+        if allow_pattern is not None:
+            assert patterns.index(secret_pattern) > patterns.index(allow_pattern)
+
+
+def test_blender_container_includes_its_runtime_smoke_inputs():
+    """The CI smoke command and recipe must exist inside the built image."""
+    dockerfile = (REPO_ROOT / "apps/blender_mcp_server/Dockerfile").read_text(encoding="utf-8")
+    assert "COPY tools/smoke_blender_extension.py ./tools/smoke_blender_extension.py" in dockerfile
+    assert (
+        "COPY examples/worlds/mistral-coast-lookout-v2/scene-recipe.json "
+        "./examples/worlds/mistral-coast-lookout-v2/scene-recipe.json"
+    ) in dockerfile

@@ -1,0 +1,8 @@
+{
+  "description": "A valid pair is one code point, not a lone surrogate.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"\\ud83d\\ude00\",\"session_id\":\"s-0001\",\"sent_at\":1730000000000,\"payload\":{}}",
+  "expect": {
+    "valid": true,
+    "stage": "parse"
+  }
+}

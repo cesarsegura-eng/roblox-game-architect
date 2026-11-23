@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/work.poll.request.json",
+  "description": "Plugin to API. The long-poll. Timeouts are implementation detail (ADR-0007).",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

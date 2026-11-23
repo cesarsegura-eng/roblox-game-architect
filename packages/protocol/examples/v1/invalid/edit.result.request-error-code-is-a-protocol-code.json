@@ -1,0 +1,34 @@
+{
+  "description": "Protocol codes are not operation codes.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.result",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "action_id": "a-1",
+      "outcome": "applied",
+      "operations": [
+        {
+          "op_id": "o1",
+          "status": "failed",
+          "error": {
+            "code": "unauthorized",
+            "message": "x"
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/operations/0/error/code",
+    "keyword": "enum"
+  }
+}

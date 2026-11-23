@@ -1,0 +1,32 @@
+services:
+  roblox-validation-mcp:
+    build:
+      context: ../../..
+      dockerfile: apps/roblox_mcp_server/Dockerfile
+    env_file:
+      - ./server.env
+    environment:
+      RGA_ROBLOX_MCP_HOST: 0.0.0.0
+      RGA_ROBLOX_MCP_PORT: 8790
+      RGA_ROBLOX_LEDGER: /var/lib/rga/validation.sqlite3
+      RGA_ROBLOX_ASSET_LEDGER: /var/lib/rga/asset_uploads.sqlite3
+      RGA_ROBLOX_MODEL_TRANSFER_LEDGER: /var/lib/rga/model_transfers.sqlite3
+      RGA_ROBLOX_PUBLISH_LEDGER: /var/lib/rga/place_publications.sqlite3
+    ports:
+      - "127.0.0.1:8790:8790"
+    volumes:
+      - roblox-validation-ledger:/var/lib/rga
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+
+volumes:
+  roblox-validation-ledger:

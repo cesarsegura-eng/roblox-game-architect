@@ -1,0 +1,30 @@
+{
+  "description": "A playtest as a work item.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "playtest.request",
+        "playtest_id": "p-0001",
+        "duration_limit_s": 30,
+        "collect": [
+          "output",
+          "timings"
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

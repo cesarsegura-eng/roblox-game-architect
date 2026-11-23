@@ -1,0 +1,24 @@
+# gitleaks configuration.
+#
+# The default rule set is kept in full. This file only adds an allowlist, and
+# only for fixed literals that exist so a test can exercise a length or
+# signature check. Each one is checked in on purpose and grants access to
+# nothing: there is no account, host or service behind it.
+#
+# The allowlist matches the literal values, not the files that hold them, so a
+# real credential committed to the same test file is still reported.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixed test fixtures that are not credentials"
+regexes = [
+  # packages/core/tests/test_place_approval.py and
+  # apps/roblox_mcp_server/tests/test_publishing.py sign and verify an approval
+  # with a key of the required 32-character minimum.
+  '''rga-place-publish-approval-test-secret-32-chars''',
+  # apps/roblox_mcp_server/tests/test_publishing.py checks that an unapproved
+  # origin is refused; the bearer value only has to be long enough to be read.
+  '''rga-origin-test-token-abcdefghijklmnopqrstuvwxyz''',
+]

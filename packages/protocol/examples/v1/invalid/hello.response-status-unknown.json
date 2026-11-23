@@ -1,0 +1,39 @@
+{
+  "description": "status is ok or error; no branch matches.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "session.hello",
+    "message_id": "m-0002",
+    "correlation_id": "m-0001",
+    "session_id": "s-0001",
+    "status": "pending",
+    "sent_at": 1730000000100,
+    "payload": {
+      "negotiated": {
+        "major": 1,
+        "minor": 0
+      },
+      "server": {
+        "version": "0.1.0"
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "",
+    "keyword": "oneOf",
+    "inner": {
+      "unknown_discriminator": {
+        "oneOf": "envelope.hello.response.json",
+        "values": {
+          "status": "pending"
+        }
+      }
+    }
+  }
+}

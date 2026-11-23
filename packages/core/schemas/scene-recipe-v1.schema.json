@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roblox-game-architect.dev/schemas/scene-recipe-v1.schema.json",
+  "title": "Roblox Game Architect Blender Scene Recipe v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "units", "up_axis", "objects"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"},
+    "units": {"const": "blender_units"},
+    "up_axis": {"const": "Z"},
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": {"$ref": "#/$defs/object"}
+    },
+    "lights": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/light"}
+    }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "primitive", "role", "location", "rotation_deg", "scale"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"},
+        "primitive": {"enum": ["cube", "uv_sphere", "ico_sphere", "cylinder", "cone", "plane", "torus"]},
+        "role": {"enum": ["terrain", "architecture", "furnishing", "vegetation", "rock", "water", "prop", "landmark", "character_blockout"]},
+        "location": {"$ref": "#/$defs/location"},
+        "rotation_deg": {"$ref": "#/$defs/rotation"},
+        "scale": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "number", "exclusiveMinimum": 0, "maximum": 1000},
+            {"type": "number", "exclusiveMinimum": 0, "maximum": 1000},
+            {"type": "number", "exclusiveMinimum": 0, "maximum": 1000}
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "bevel": {"type": "number", "minimum": 0, "maximum": 1},
+        "smooth_shading": {"type": "boolean"},
+        "material": {"$ref": "#/$defs/material"}
+      }
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_color", "roughness"],
+      "properties": {
+        "base_color": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "number", "minimum": 0, "maximum": 1},
+            {"type": "number", "minimum": 0, "maximum": 1},
+            {"type": "number", "minimum": 0, "maximum": 1},
+            {"type": "number", "minimum": 0, "maximum": 1}
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "roughness": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "location": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": -10000, "maximum": 10000},
+        {"type": "number", "minimum": -10000, "maximum": 10000},
+        {"type": "number", "minimum": -10000, "maximum": 10000}
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "rotation": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": -36000, "maximum": 36000},
+        {"type": "number", "minimum": -36000, "maximum": 36000},
+        {"type": "number", "minimum": -36000, "maximum": 36000}
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "location", "rotation_deg", "color", "energy"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$"},
+        "type": {"enum": ["SUN", "AREA", "POINT", "SPOT"]},
+        "location": {"$ref": "#/$defs/location"},
+        "rotation_deg": {"$ref": "#/$defs/rotation"},
+        "color": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "number", "minimum": 0, "maximum": 1},
+            {"type": "number", "minimum": 0, "maximum": 1},
+            {"type": "number", "minimum": 0, "maximum": 1}
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "energy": {"type": "number", "minimum": 0, "maximum": 100000},
+        "distance": {"type": "number", "exclusiveMinimum": 0.001, "maximum": 10000},
+        "spot_size_deg": {"type": "number", "minimum": 1, "maximum": 180},
+        "angle_deg": {"type": "number", "exclusiveMinimum": 0.01, "maximum": 45}
+      }
+    }
+  }
+}

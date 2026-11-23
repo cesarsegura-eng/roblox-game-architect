@@ -1,0 +1,34 @@
+{
+  "description": "Playtest output is untrusted data, whoever produced it.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "playtest.report",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "playtest_id": "p-0001",
+      "outcome": "completed",
+      "duration_ms": 12000,
+      "output": [
+        {
+          "t_ms": 10,
+          "level": "info",
+          "text": "server started"
+        },
+        {
+          "t_ms": 950,
+          "level": "error",
+          "text": "attempt to index nil with 'Name'"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/error.protocol.json",
+  "description": "Message-level error: protocol, session and dispatch failures. Payload of any response whose status is error.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "invalid_message",
+        "unknown_type",
+        "unsupported_version",
+        "unauthorized",
+        "session_expired",
+        "unknown_work",
+        "result_conflict",
+        "internal"
+      ]
+    },
+    "message": {
+      "description": "Fixed-template text. Never exception text, traces, secrets or project content.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "details": {
+      "description": "Closed on purpose: no free-form data, no stack traces.",
+      "type": "object",
+      "properties": {
+        "supported": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "common.json#/$defs/version_range"
+          }
+        },
+        "retry_after_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "retryable"
+  ],
+  "additionalProperties": false
+}

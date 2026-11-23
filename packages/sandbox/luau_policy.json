@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "max_objects": 100,
+  "globals": ["CFrame", "Color3", "Enum", "Instance", "Vector3", "workspace"],
+  "classes": ["Folder", "Model", "Part", "WedgePart"],
+  "materials": [
+    "Brick",
+    "Concrete",
+    "Fabric",
+    "Glass",
+    "Grass",
+    "Metal",
+    "Neon",
+    "Plastic",
+    "Sand",
+    "SmoothPlastic",
+    "Wood",
+    "WoodPlanks"
+  ],
+  "properties": {
+    "Part": {
+      "Anchored": "boolean",
+      "CanCollide": "boolean",
+      "Transparency": "number",
+      "Size": "vector3",
+      "Position": "vector3",
+      "Orientation": "vector3",
+      "CFrame": "cframe",
+      "Color": "color3",
+      "Material": "material"
+    },
+    "WedgePart": {
+      "Anchored": "boolean",
+      "CanCollide": "boolean",
+      "Transparency": "number",
+      "Size": "vector3",
+      "Position": "vector3",
+      "Orientation": "vector3",
+      "CFrame": "cframe",
+      "Color": "color3",
+      "Material": "material"
+    }
+  }
+}

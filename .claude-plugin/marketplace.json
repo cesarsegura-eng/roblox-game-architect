@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "roblox-game-architect-tools",
+  "description": "Remote MCP tools and domain skills for Roblox Game Architect.",
+  "owner": {
+    "name": "Roblox Game Architect"
+  },
+  "plugins": [
+    {
+      "name": "rga-game-architect",
+      "source": {
+        "source": "git-subdir",
+        "url": "cesarsegura-eng/roblox-game-architect",
+        "path": "apps/claude-code-plugin"
+      },
+      "description": "Roblox design skills, remote Blender MCP, and guidance for native Studio MCP."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 2,
+  "title": "Rainforest Canopy Run",
+  "genre": "Exploration course",
+  "pitch": "Follow the canopy trail, collect three coins for points and temporary speed boosts, then reach the summit lookout.",
+  "target_players": "Players who enjoy short exploration rounds.",
+  "core_loop": ["Follow the trail and collect three coins for points and speed boosts.", "Touch the summit lookout and start another round."],
+  "systems": [
+    {"name": "Canopy coins and timed speed boosts", "purpose": "Give one point and a timed speed boost per coin per player each round.", "implementation_stage": "blockout"},
+    {"name": "Lava vent", "purpose": "Eliminate a player who touches the vent.", "implementation_stage": "blockout"},
+    {"name": "Summit finish", "purpose": "Award a win for reaching the summit with three points.", "implementation_stage": "blockout"}
+  ],
+  "playable_slice": {
+    "gameplay_mode": "rule_game",
+    "gameplay_rules": [
+      {"trigger_role": "collectible", "action": "award_points", "amount": 1},
+      {"trigger_role": "collectible", "action": "speed_boost", "amount": 8, "duration_seconds": 12},
+      {"trigger_role": "hazard", "action": "eliminate"},
+      {"trigger_role": "landmark", "action": "award_win", "minimum_points": 3}
+    ],
+    "included_systems": ["Canopy coins and timed speed boosts", "Lava vent", "Summit finish"],
+    "deferred_systems": [],
+    "limitations": ["Points and wins belong to the current server session."]
+  },
+  "world_brief": "A connected rainforest path leads over a canopy bridge to a summit lookout. Place three coins along the route and a lava vent beside the trail.",
+  "milestones": ["Build the route.", "Place coins, the vent and the lookout.", "Play two rounds with two players."],
+  "validation_goals": ["Each player collects each coin once per round.", "A win requires three points.", "The vent eliminates the player on contact.", "A coin temporarily boosts speed and restores the original speed after twelve seconds."]
+}

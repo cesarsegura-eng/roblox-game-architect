@@ -1,0 +1,33 @@
+{
+  "name": "rga-game-architect",
+  "displayName": "Roblox Game Architect",
+  "version": "0.1.0",
+  "description": "Roblox game design skills, remote Blender authoring, and guidance for the user's existing Roblox Studio MCP.",
+  "author": {
+    "name": "Roblox Game Architect"
+  },
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "privacyPolicyUrl": "https://github.com/cesarsegura-eng/roblox-game-architect/blob/main/apps/claude-code-plugin/PRIVACY.md",
+  "keywords": [
+    "roblox",
+    "game-development",
+    "blender",
+    "mcp"
+  ],
+  "userConfig": {
+    "blender_mcp_host": {
+      "type": "string",
+      "title": "Blender MCP host",
+      "description": "Hostname supplied by your RGA service operator, without scheme or path. The plugin connects using HTTPS at /mcp.",
+      "required": true
+    },
+    "blender_mcp_token": {
+      "type": "string",
+      "title": "Blender MCP bearer token",
+      "description": "Distinct server-issued credential for the Blender MCP endpoint.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

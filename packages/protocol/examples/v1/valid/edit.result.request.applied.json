@@ -1,0 +1,36 @@
+{
+  "description": "Everything applied; a created instance reports its path.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.result",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "action_id": "a-0001",
+      "outcome": "applied",
+      "operations": [
+        {
+          "op_id": "o1",
+          "status": "applied",
+          "path": [
+            "Workspace",
+            "Map",
+            "Props"
+          ]
+        },
+        {
+          "op_id": "o2",
+          "status": "applied"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

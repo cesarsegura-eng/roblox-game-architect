@@ -1,0 +1,199 @@
+{
+  "description": "Every operation kind in one action: folder, part, three properties, a script created (disabled by the plugin) and given source, a move and a delete.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "Workspace",
+              "Map"
+            ],
+            "extent": "subtree"
+          },
+          {
+            "path": [
+              "ServerScriptService",
+              "Gen"
+            ],
+            "extent": "subtree"
+          }
+        ],
+        "operations": [
+          {
+            "op": "create_instance",
+            "op_id": "o1",
+            "parent": {
+              "path": [
+                "Workspace",
+                "Map"
+              ],
+              "expect_class": "Folder"
+            },
+            "name": "Props",
+            "class_name": "Folder"
+          },
+          {
+            "op": "create_instance",
+            "op_id": "o2",
+            "parent": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props"
+              ],
+              "expect_class": "Folder"
+            },
+            "name": "Base",
+            "class_name": "Part"
+          },
+          {
+            "op": "set_property",
+            "op_id": "o3",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props",
+                "Base"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Anchored",
+            "value": true
+          },
+          {
+            "op": "set_property",
+            "op_id": "o4",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props",
+                "Base"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Size",
+            "value": {
+              "x": 8,
+              "y": 1,
+              "z": 8
+            }
+          },
+          {
+            "op": "set_property",
+            "op_id": "o5",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props",
+                "Base"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Color",
+            "value": {
+              "r": 0.2,
+              "g": 0.4,
+              "b": 0.8
+            }
+          },
+          {
+            "op": "set_property",
+            "op_id": "o6",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props",
+                "Base"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Material",
+            "value": {
+              "enum": "Material",
+              "item": "SmoothPlastic"
+            }
+          },
+          {
+            "op": "create_instance",
+            "op_id": "o7",
+            "parent": {
+              "path": [
+                "ServerScriptService",
+                "Gen"
+              ],
+              "expect_class": "Folder"
+            },
+            "name": "Spawner",
+            "class_name": "Script"
+          },
+          {
+            "op": "set_script_source",
+            "op_id": "o8",
+            "target": {
+              "path": [
+                "ServerScriptService",
+                "Gen",
+                "Spawner"
+              ],
+              "expect_class": "Script"
+            },
+            "source": "print('spawner ready')"
+          },
+          {
+            "op": "reparent",
+            "op_id": "o9",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Old"
+              ],
+              "expect_class": "Part"
+            },
+            "new_parent": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Props"
+              ],
+              "expect_class": "Folder"
+            }
+          },
+          {
+            "op": "delete_instance",
+            "op_id": "o10",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Debris"
+              ],
+              "expect_class": "Part"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

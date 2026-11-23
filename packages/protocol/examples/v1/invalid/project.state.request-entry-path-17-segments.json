@@ -1,0 +1,53 @@
+{
+  "description": "Entry paths are capped at 16 segments.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "s1",
+      "reason": "session_start",
+      "roots": [
+        "Workspace"
+      ],
+      "complete_depth": 2,
+      "truncated": false,
+      "entries": [
+        {
+          "path": [
+            "s0",
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "s6",
+            "s7",
+            "s8",
+            "s9",
+            "s10",
+            "s11",
+            "s12",
+            "s13",
+            "s14",
+            "s15",
+            "s16"
+          ],
+          "class_name": "Workspace"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/entries/0/path",
+    "keyword": "maxItems"
+  }
+}

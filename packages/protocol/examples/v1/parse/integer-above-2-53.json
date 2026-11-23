@@ -1,0 +1,9 @@
+{
+  "description": "2^53 + 1: a double cannot hold it, so Luau and Python would disagree.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"m-0100\",\"session_id\":\"s-0001\",\"sent_at\":9007199254740993,\"payload\":{}}",
+  "expect": {
+    "valid": false,
+    "stage": "parse",
+    "reason": "integer_out_of_range"
+  }
+}

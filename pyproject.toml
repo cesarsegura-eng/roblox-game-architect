@@ -25,17 +25,38 @@ dev = [
   "ruff>=0.17.3,<0.18",   # pre-1.0: minor bumps add and remove lint rules
   "pytest>=9.2,<10",
   "pytest-env>=1.8.4,<2", # provides the [tool.pytest.ini_options] env setting
+  "jsonschema>=4.26,<5",  # validates packages/protocol schemas (Draft 2020-12); tests only
+  "Pillow==13.0.0",       # exercise full bounded PNG/JPEG decode in model upload tests
 ]
+roblox-assets = ["Pillow==13.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/cesarsegura-eng/roblox-game-architect"
 Issues = "https://github.com/cesarsegura-eng/roblox-game-architect/issues"
 
-# No Python packages exist yet (see the roadmap in README.md). This stays empty
-# on purpose so that `pip install -e ".[dev]"` works today and gives you the
-# tooling; package entries get added as packages/ gains real code.
+# The importable packages live under packages/ (ADR-0001), not at the repo root,
+# so each one is mapped explicitly. Tests sit beside the code but are not
+# listed, so they are never installed as a package. Add entries here as
+# packages/ gains real code.
 [tool.setuptools]
-packages = []
+# Runtime resources are enumerated explicitly below. Do not infer packages from
+# resource-only folders such as web/, schemas/, skillpacks/, or lute/.
+include-package-data = false
+packages = ["api", "core", "core.llm", "sandbox", "apps", "apps.blender_mcp_server", "apps.roblox_mcp_server"]
+
+[tool.setuptools.package-dir]
+api = "packages/api"
+core = "packages/core"
+sandbox = "packages/sandbox"
+apps = "apps"
+"apps.blender_mcp_server" = "apps/blender_mcp_server"
+"apps.roblox_mcp_server" = "apps/roblox_mcp_server"
+
+[tool.setuptools.package-data]
+apps = ["web/*.html", "web/*.css", "web/*.js"]
+"apps.roblox_mcp_server" = ["harness.luau", "model_import_harness.luau"]
+sandbox = ["lute/*.luau", "luau_policy.json"]
+core = ["schemas/*.json", "skillpacks/**/*.md", "reference_scenes.json"]
 
 [tool.ruff]
 line-length = 100
@@ -68,9 +89,10 @@ select = [
 known-first-party = ["core", "api", "protocol", "sandbox"]
 
 [tool.pytest.ini_options]
-# Unit tests live beside their package; tests/ holds integration and e2e
-# (ADR-0001). Both are collected here.
-testpaths = ["packages", "tests"]
+# Unit tests live beside packages and applications; tests/ holds integration
+# and e2e (ADR-0001). Collect all three trees so service tests cannot drift out
+# of the default local and CI runs.
+testpaths = ["apps", "packages", "tests"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
   "integration: crosses a component boundary",

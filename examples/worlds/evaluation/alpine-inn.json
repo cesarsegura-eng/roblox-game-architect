@@ -1,0 +1,530 @@
+{
+  "schema_version": 3,
+  "name": "Alpine Timber Inn Evaluation",
+  "units": "blender_units",
+  "up_axis": "Z",
+  "objects": [
+    {
+      "name": "Snowy valley floor",
+      "primitive": "plane",
+      "role": "terrain",
+      "location": [
+        0,
+        0,
+        -0.3
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        30,
+        28,
+        0.3
+      ],
+      "material": {
+        "base_color": [
+          0.78,
+          0.86,
+          0.94,
+          1
+        ],
+        "roughness": 0.92
+      }
+    },
+    {
+      "name": "Lower inn approach trail",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        -15,
+        -0.05
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        2.5,
+        0.08
+      ],
+      "material": {
+        "base_color": [
+          0.38,
+          0.32,
+          0.26,
+          1
+        ],
+        "roughness": 0.9
+      }
+    },
+    {
+      "name": "Middle inn approach trail",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        -10,
+        -0.05
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        2.5,
+        0.08
+      ],
+      "material": {
+        "base_color": [
+          0.38,
+          0.32,
+          0.26,
+          1
+        ],
+        "roughness": 0.9
+      }
+    },
+    {
+      "name": "Upper inn approach trail",
+      "primitive": "cube",
+      "role": "path",
+      "location": [
+        0,
+        -5,
+        -0.05
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        2.5,
+        0.08
+      ],
+      "material": {
+        "base_color": [
+          0.38,
+          0.32,
+          0.26,
+          1
+        ],
+        "roughness": 0.9
+      }
+    },
+    {
+      "name": "Pine at west trail",
+      "primitive": "cone",
+      "role": "vegetation",
+      "location": [
+        -12,
+        -3,
+        1.6
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        1.1,
+        3.2
+      ],
+      "material": {
+        "base_color": [
+          0.12,
+          0.27,
+          0.2,
+          1
+        ],
+        "roughness": 0.85
+      }
+    },
+    {
+      "name": "Pine at east trail",
+      "primitive": "cone",
+      "role": "vegetation",
+      "location": [
+        12,
+        -5,
+        1.6
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        1.1,
+        3.2
+      ],
+      "material": {
+        "base_color": [
+          0.12,
+          0.27,
+          0.2,
+          1
+        ],
+        "roughness": 0.85
+      }
+    },
+    {
+      "name": "Exposed granite ridge",
+      "primitive": "ico_sphere",
+      "role": "rock",
+      "location": [
+        -9,
+        12,
+        2
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        12
+      ],
+      "scale": [
+        5,
+        3,
+        3.5
+      ],
+      "material": {
+        "base_color": [
+          0.42,
+          0.46,
+          0.5,
+          1
+        ],
+        "roughness": 0.94
+      }
+    },
+    {
+      "name": "Timber inn outer mass",
+      "primitive": "cube",
+      "role": "exterior",
+      "location": [
+        0,
+        0,
+        1.7
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        4.5,
+        4.5,
+        1.7
+      ],
+      "material": {
+        "base_color": [
+          0.34,
+          0.19,
+          0.1,
+          1
+        ],
+        "roughness": 0.8
+      }
+    },
+    {
+      "name": "Covered inn threshold",
+      "primitive": "cube",
+      "role": "entry",
+      "location": [
+        0,
+        -4.8,
+        0.08
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.1,
+        1.4,
+        0.12
+      ],
+      "material": {
+        "base_color": [
+          0.38,
+          0.28,
+          0.2,
+          1
+        ],
+        "roughness": 0.84
+      }
+    },
+    {
+      "name": "Common room floor",
+      "primitive": "cube",
+      "role": "interior",
+      "location": [
+        0,
+        0,
+        0.05
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        3.8,
+        3.8,
+        0.08
+      ],
+      "material": {
+        "base_color": [
+          0.48,
+          0.32,
+          0.2,
+          1
+        ],
+        "roughness": 0.72
+      }
+    },
+    {
+      "name": "Front door opening",
+      "primitive": "cube",
+      "role": "opening",
+      "location": [
+        0,
+        -3.9,
+        1.35
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.9,
+        0.18,
+        1.25
+      ],
+      "material": {
+        "base_color": [
+          0.12,
+          0.08,
+          0.05,
+          1
+        ],
+        "roughness": 0.9
+      }
+    },
+    {
+      "name": "Snow shedding pitched roof",
+      "primitive": "cube",
+      "role": "roof",
+      "location": [
+        0,
+        0,
+        3.7
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        5.3,
+        5.3,
+        0.45
+      ],
+      "material": {
+        "base_color": [
+          0.2,
+          0.16,
+          0.14,
+          1
+        ],
+        "roughness": 0.9
+      }
+    },
+    {
+      "name": "Hearth bench",
+      "primitive": "cube",
+      "role": "furnishing",
+      "location": [
+        1.5,
+        0.8,
+        0.45
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.5,
+        0.35,
+        0.45
+      ],
+      "material": {
+        "base_color": [
+          0.3,
+          0.18,
+          0.1,
+          1
+        ],
+        "roughness": 0.8
+      }
+    },
+    {
+      "name": "Inn common table",
+      "primitive": "cube",
+      "role": "furnishing",
+      "location": [
+        -1.1,
+        0.2,
+        0.55
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.75,
+        0.65,
+        0.55
+      ],
+      "material": {
+        "base_color": [
+          0.39,
+          0.24,
+          0.13,
+          1
+        ],
+        "roughness": 0.7
+      }
+    },
+    {
+      "name": "Distant alpine summit",
+      "primitive": "ico_sphere",
+      "role": "landmark",
+      "location": [
+        13,
+        15,
+        6
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        6,
+        5,
+        8
+      ],
+      "material": {
+        "base_color": [
+          0.58,
+          0.68,
+          0.78,
+          1
+        ],
+        "roughness": 0.95
+      }
+    }
+  ],
+  "lights": [
+    {
+      "name": "Cold alpine daylight",
+      "type": "SUN",
+      "location": [
+        0,
+        -8,
+        18
+      ],
+      "rotation_deg": [
+        24,
+        0,
+        -35
+      ],
+      "color": [
+        0.72,
+        0.84,
+        1
+      ],
+      "energy": 1.8,
+      "angle_deg": 10
+    },
+    {
+      "name": "Hearth glow",
+      "type": "AREA",
+      "location": [
+        0,
+        0,
+        2.2
+      ],
+      "rotation_deg": [
+        0,
+        0,
+        0
+      ],
+      "color": [
+        1,
+        0.48,
+        0.2
+      ],
+      "energy": 38,
+      "distance": 5
+    }
+  ],
+  "environment": {
+    "ambient_color": [
+      0.16,
+      0.19,
+      0.23
+    ],
+    "outdoor_ambient_color": [
+      0.43,
+      0.52,
+      0.63
+    ],
+    "brightness": 2.0,
+    "clock_time": 11.0,
+    "exposure_compensation": -0.15,
+    "global_shadows": true,
+    "shadow_softness": 0.25,
+    "atmosphere": {
+      "color": [
+        0.7,
+        0.81,
+        0.96
+      ],
+      "decay": [
+        0.34,
+        0.45,
+        0.62
+      ],
+      "density": 0.12,
+      "glare": 0.2,
+      "haze": 0.45,
+      "offset": 0.22
+    },
+    "clouds": {
+      "color": [
+        0.82,
+        0.87,
+        0.94
+      ],
+      "cover": 0.42,
+      "density": 0.38,
+      "enabled": true
+    }
+  }
+}

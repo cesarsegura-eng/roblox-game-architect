@@ -1,0 +1,56 @@
+{
+  "description": "60 characters of 2 bytes (120 bytes) are within the 100-character limit.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "Workspace",
+              "Map"
+            ],
+            "extent": "subtree"
+          }
+        ],
+        "operations": [
+          {
+            "op": "create_instance",
+            "op_id": "o1",
+            "parent": {
+              "path": [
+                "Workspace",
+                "Map"
+              ],
+              "expect_class": "Folder"
+            },
+            "name": "x",
+            "class_name": "Folder"
+          }
+        ]
+      }
+    }
+  },
+  "generate": [
+    {
+      "at": "/payload/work/operations/0/name",
+      "fill": "\u00e9",
+      "length": 60
+    }
+  ],
+  "expect": {
+    "valid": true
+  }
+}

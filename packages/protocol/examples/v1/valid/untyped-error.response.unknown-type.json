@@ -1,0 +1,22 @@
+{
+  "description": "The request type could not be determined, so the response has no type.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "message_id": "m-0102",
+    "status": "error",
+    "sent_at": 1730000000100,
+    "payload": {
+      "code": "unknown_type",
+      "message": "Unknown message type.",
+      "retryable": false
+    },
+    "correlation_id": "m-0100"
+  },
+  "expect": {
+    "valid": true
+  }
+}

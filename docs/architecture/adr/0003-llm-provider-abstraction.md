@@ -28,7 +28,7 @@ Three kinds of implementation:
 - **`fake`** — deterministic, offline, zero cost. Returns canned or
   rule-derived responses. **This is the default**, set in `.env.example` via
   `LLM_PROVIDER=fake`.
-- **Real adapters** — one thin module per provider, containing the SDK call and
+- **Real adapters** — one thin module per provider, containing the API call and
   nothing else: no prompt construction, no decision logic.
 - **A recording adapter** (later) — replays captured real responses, for tests
   that need realistic output without paying for it.
@@ -36,9 +36,12 @@ Three kinds of implementation:
 The provider is selected by configuration, never by an import in agent code.
 The test suite must pass with `fake` (invariant I7).
 
-The default model for real runs is the latest and most capable Claude model
-available; the adapter pins an explicit model id rather than an alias, so a
-provider-side change cannot silently alter behaviour.
+The offline fake remains the default. A live adapter requires an explicitly
+configured model ID. The initial Anthropic adapter supports only the documented
+`claude-sonnet-5-5` API ID because its standard global price is recorded for the
+spend guard; upgrading its model or rate is a deliberate change. Anthropic
+distinguishes stable API IDs (aliases) from snapshot IDs; snapshot support can
+be added when its exact ID and price are verified.
 
 ## Consequences
 

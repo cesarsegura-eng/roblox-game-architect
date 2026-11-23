@@ -1,0 +1,31 @@
+{
+  "description": "Same: major 2.",
+  "message": {
+    "protocol_version": {
+      "major": 2,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "session.hello",
+    "message_id": "m-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "client": {
+        "name": "studio-plugin",
+        "version": "0.1.0"
+      },
+      "supported": [
+        {
+          "major": 1,
+          "max_minor": 0
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "envelope",
+    "path": "/protocol_version/major",
+    "keyword": "const"
+  }
+}

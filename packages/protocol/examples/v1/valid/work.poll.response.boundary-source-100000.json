@@ -1,0 +1,55 @@
+{
+  "description": "A script source of exactly 100000 characters (generated).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "ServerScriptService",
+              "S"
+            ],
+            "extent": "self"
+          }
+        ],
+        "operations": [
+          {
+            "op": "set_script_source",
+            "op_id": "o1",
+            "target": {
+              "path": [
+                "ServerScriptService",
+                "S"
+              ],
+              "expect_class": "Script"
+            },
+            "source": ""
+          }
+        ]
+      }
+    }
+  },
+  "generate": [
+    {
+      "at": "/payload/work/operations/0/source",
+      "fill": "a",
+      "length": 100000
+    }
+  ],
+  "expect": {
+    "valid": true
+  }
+}

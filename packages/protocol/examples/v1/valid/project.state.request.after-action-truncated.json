@@ -1,0 +1,42 @@
+{
+  "description": "A truncated snapshot: absence is evidence only down to complete_depth.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "snap-0002",
+      "reason": "after_action",
+      "after_action_id": "a-0001",
+      "roots": [
+        "Workspace"
+      ],
+      "complete_depth": 2,
+      "truncated": true,
+      "entries": [
+        {
+          "path": [
+            "Workspace"
+          ],
+          "class_name": "Workspace"
+        },
+        {
+          "path": [
+            "Workspace",
+            "Map"
+          ],
+          "class_name": "Folder"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

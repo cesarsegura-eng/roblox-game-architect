@@ -1,0 +1,30 @@
+{
+  "description": "client.name is required.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "session.hello",
+    "message_id": "m-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "client": {
+        "version": "0.1.0"
+      },
+      "supported": [
+        {
+          "major": 1,
+          "max_minor": 0
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/client",
+    "keyword": "required"
+  }
+}

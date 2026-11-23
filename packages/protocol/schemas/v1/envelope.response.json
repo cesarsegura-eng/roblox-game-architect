@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/envelope.response.json",
+  "description": "Envelope of every typed response except session.hello. correlation_id is the message_id of the request it answers.",
+  "type": "object",
+  "properties": {
+    "protocol_version": {
+      "$ref": "common.json#/$defs/protocol_version"
+    },
+    "kind": {
+      "type": "string",
+      "const": "response"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "work.poll",
+        "project.state",
+        "edit.result",
+        "playtest.report"
+      ]
+    },
+    "message_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "correlation_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "session_id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ]
+    },
+    "sent_at": {
+      "$ref": "common.json#/$defs/timestamp_ms"
+    },
+    "payload": {
+      "description": "Opaque at this stage. Validated in stage 2 against the payload schema selected by type, kind and status (docs/protocol/README.md)."
+    }
+  },
+  "required": [
+    "protocol_version",
+    "kind",
+    "type",
+    "message_id",
+    "correlation_id",
+    "session_id",
+    "status",
+    "payload"
+  ],
+  "additionalProperties": false
+}

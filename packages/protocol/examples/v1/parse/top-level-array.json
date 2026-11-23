@@ -1,0 +1,9 @@
+{
+  "description": "A message is an object.",
+  "message_raw": "[]",
+  "expect": {
+    "valid": false,
+    "stage": "parse",
+    "reason": "not_object"
+  }
+}

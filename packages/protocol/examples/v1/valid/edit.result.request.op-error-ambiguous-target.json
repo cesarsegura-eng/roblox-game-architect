@@ -1,0 +1,42 @@
+{
+  "description": "An operation error with code ambiguous_target.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.result",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "action_id": "a-0001",
+      "outcome": "rejected",
+      "operations": [
+        {
+          "op_id": "o1",
+          "status": "failed",
+          "error": {
+            "code": "ambiguous_target",
+            "message": "Operation could not be applied.",
+            "details": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ]
+            }
+          }
+        },
+        {
+          "op_id": "o2",
+          "status": "skipped"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

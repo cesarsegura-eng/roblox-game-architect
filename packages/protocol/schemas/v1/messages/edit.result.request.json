@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/edit.result.request.json",
+  "description": "Plugin to API. What actually happened. indeterminate is final in the protocol.",
+  "type": "object",
+  "properties": {
+    "action_id": {
+      "$ref": "../common.json#/$defs/id"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "rejected",
+        "partial",
+        "indeterminate"
+      ]
+    },
+    "replayed": {
+      "type": "boolean"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/op_result"
+      }
+    }
+  },
+  "required": [
+    "action_id",
+    "outcome",
+    "operations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "op_result": {
+      "type": "object",
+      "properties": {
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "failed",
+            "skipped",
+            "unknown"
+          ]
+        },
+        "path": {
+          "$ref": "../common.json#/$defs/path"
+        },
+        "error": {
+          "$ref": "../error.operation.json"
+        }
+      },
+      "required": [
+        "op_id",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

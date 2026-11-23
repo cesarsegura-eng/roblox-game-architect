@@ -1,0 +1,8 @@
+{
+  "description": "JSON whitespace between tokens.",
+  "message_raw": "{\n  \"protocol_version\": {\n    \"major\": 1,\n    \"minor\": 0\n  },\n  \"kind\": \"request\",\n  \"type\": \"work.poll\",\n  \"message_id\": \"m-0100\",\n  \"session_id\": \"s-0001\",\n  \"sent_at\": 1730000000000,\n  \"payload\": {}\n}",
+  "expect": {
+    "valid": true,
+    "stage": "parse"
+  }
+}

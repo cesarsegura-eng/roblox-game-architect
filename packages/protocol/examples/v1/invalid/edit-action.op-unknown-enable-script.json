@@ -1,0 +1,59 @@
+{
+  "description": "There is no script activation in v1.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "Workspace",
+              "Map"
+            ],
+            "extent": "subtree"
+          }
+        ],
+        "operations": [
+          {
+            "op": "enable_script",
+            "op_id": "o1",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Script"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/work",
+    "keyword": "oneOf",
+    "inner": {
+      "unknown_discriminator": {
+        "oneOf": "messages/edit.action.json#/$defs/operation",
+        "values": {
+          "op": "enable_script"
+        }
+      }
+    }
+  }
+}

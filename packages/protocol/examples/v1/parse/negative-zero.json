@@ -1,0 +1,8 @@
+{
+  "description": "-0 is a number.",
+  "message_raw": "{\"protocol_version\":{\"major\":1,\"minor\":0},\"kind\":\"request\",\"type\":\"work.poll\",\"message_id\":\"m-0100\",\"session_id\":\"s-0001\",\"sent_at\":-0,\"payload\":{}}",
+  "expect": {
+    "valid": true,
+    "stage": "parse"
+  }
+}

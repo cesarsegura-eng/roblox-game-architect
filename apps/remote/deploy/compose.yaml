@@ -1,0 +1,89 @@
+services:
+  edge:
+    image: caddy:2.11.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      BLENDER_DOMAIN: ${BLENDER_DOMAIN:?Set BLENDER_DOMAIN in .env}
+      ROBLOX_DOMAIN: ${ROBLOX_DOMAIN:?Set ROBLOX_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      blender-mcp:
+        condition: service_healthy
+      roblox-mcp:
+        condition: service_healthy
+    networks:
+      - backend
+
+  blender-mcp:
+    build:
+      context: ../../..
+      dockerfile: apps/blender_mcp_server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./blender.env
+    environment:
+      BLENDER_MCP_HOST: 0.0.0.0
+      BLENDER_MCP_PORT: 8788
+      BLENDER_MCP_PUBLIC_ORIGIN: https://${BLENDER_DOMAIN:?Set BLENDER_DOMAIN in .env}
+      BLENDER_EXECUTABLE: /opt/blender/blender
+      BLENDER_MCP_OUTPUT_DIR: /var/lib/rga/artifacts
+      RGA_PROJECT_ROOT: /srv/rga
+    volumes:
+      - blender-artifacts:/var/lib/rga/artifacts
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 6g
+    cpus: 4
+    networks:
+      - backend
+
+  roblox-mcp:
+    build:
+      context: ../../..
+      dockerfile: apps/roblox_mcp_server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./roblox.env
+    environment:
+      RGA_ROBLOX_MCP_HOST: 0.0.0.0
+      RGA_ROBLOX_MCP_PORT: 8790
+      RGA_ROBLOX_LEDGER: /var/lib/rga/validation.sqlite3
+      RGA_ROBLOX_ASSET_LEDGER: /var/lib/rga/asset_uploads.sqlite3
+      RGA_ROBLOX_MODEL_TRANSFER_LEDGER: /var/lib/rga/model_transfers.sqlite3
+      RGA_ROBLOX_PUBLISH_LEDGER: /var/lib/rga/place_publications.sqlite3
+    volumes:
+      - roblox-ledger:/var/lib/rga
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  caddy-data:
+  caddy-config:
+  blender-artifacts:
+  roblox-ledger:

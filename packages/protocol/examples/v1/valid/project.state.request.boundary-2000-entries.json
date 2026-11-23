@@ -1,0 +1,40 @@
+{
+  "description": "The maximum of 2000 entries (generated).",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "snap-9",
+      "reason": "session_start",
+      "roots": [
+        "Workspace"
+      ],
+      "complete_depth": 2,
+      "truncated": true,
+      "entries": []
+    }
+  },
+  "generate": [
+    {
+      "at": "/payload/entries",
+      "repeat": {
+        "path": [
+          "Workspace",
+          "P"
+        ],
+        "class_name": "Part"
+      },
+      "count": 2000
+    }
+  ],
+  "expect": {
+    "valid": true
+  }
+}

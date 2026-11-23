@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/edit.result.response.json",
+  "description": "API to plugin. Result recorded.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

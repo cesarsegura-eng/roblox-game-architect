@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:roblox-game-architect:game-plan-v2",
+  "title": "Roblox Game Architect Game Plan v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "title",
+    "genre",
+    "pitch",
+    "target_players",
+    "core_loop",
+    "systems",
+    "playable_slice",
+    "world_brief",
+    "milestones",
+    "validation_goals"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "genre": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "pitch": { "type": "string", "minLength": 1, "maxLength": 600 },
+    "target_players": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "core_loop": {
+      "type": "array", "minItems": 2, "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "systems": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "purpose", "implementation_stage"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "implementation_stage": { "enum": ["blockout", "later"] }
+        }
+      }
+    },
+    "playable_slice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["gameplay_mode", "gameplay_rules", "included_systems", "deferred_systems", "limitations"],
+      "properties": {
+        "gameplay_mode": { "enum": ["blockout", "obby", "treasure_hunt", "rule_game"] },
+        "gameplay_rules": {
+          "type": "array", "maxItems": 16,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "amount"],
+                "properties": {
+                  "trigger_role": { "enum": ["collectible", "hazard", "prop", "landmark"] },
+                  "action": { "const": "award_points" },
+                  "amount": { "type": "integer", "minimum": 1, "maximum": 1000 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "amount"],
+                "properties": {
+                  "trigger_role": { "enum": ["collectible", "hazard", "prop", "landmark"] },
+                  "action": { "const": "heal" },
+                  "amount": { "type": "integer", "minimum": 1, "maximum": 100 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "amount", "duration_seconds"],
+                "properties": {
+                  "trigger_role": { "enum": ["collectible", "prop"] },
+                  "action": { "const": "speed_boost" },
+                  "amount": { "type": "integer", "minimum": 1, "maximum": 16 },
+                  "duration_seconds": { "type": "integer", "minimum": 1, "maximum": 30 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "amount"],
+                "properties": {
+                  "trigger_role": { "const": "hazard" },
+                  "action": { "const": "damage" },
+                  "amount": { "type": "integer", "minimum": 1, "maximum": 100 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action"],
+                "properties": {
+                  "trigger_role": { "const": "hazard" },
+                  "action": { "const": "eliminate" }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["trigger_role", "action", "minimum_points"],
+                "properties": {
+                  "trigger_role": { "const": "landmark" },
+                  "action": { "const": "award_win" },
+                  "minimum_points": { "type": "integer", "minimum": 1, "maximum": 1000 }
+                }
+              }
+            ]
+          },
+          "allOf": [
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "collectible" }, "action": { "const": "speed_boost" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "hazard" }, "action": { "enum": ["damage", "eliminate"] } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "prop" }, "action": { "const": "speed_boost" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "award_points" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "heal" } } }, "minContains": 0, "maxContains": 1 },
+            { "contains": { "type": "object", "required": ["trigger_role", "action"], "properties": { "trigger_role": { "const": "landmark" }, "action": { "const": "award_win" } } }, "minContains": 0, "maxContains": 1 }
+          ]
+        },
+        "included_systems": {
+          "type": "array", "maxItems": 10,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "deferred_systems": {
+          "type": "array", "maxItems": 10,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "limitations": {
+          "type": "array", "minItems": 1, "maxItems": 6,
+          "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+        }
+      }
+    },
+    "world_brief": { "type": "string", "minLength": 40, "maxLength": 8192 },
+    "milestones": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    },
+    "validation_goals": {
+      "type": "array", "minItems": 3, "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "playable_slice": {
+            "properties": { "gameplay_mode": { "const": "rule_game" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "playable_slice": { "properties": { "gameplay_rules": { "minItems": 1 } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "playable_slice": {
+            "properties": {
+              "gameplay_mode": { "enum": ["blockout", "obby", "treasure_hunt"] }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "playable_slice": { "properties": { "gameplay_rules": { "maxItems": 0 } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "playable_slice": {
+            "properties": {
+              "gameplay_rules": {
+                "contains": {
+                  "type": "object",
+                  "required": ["trigger_role", "action"],
+                  "properties": {
+                    "trigger_role": { "const": "landmark" },
+                    "action": { "const": "award_win" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "playable_slice": {
+            "properties": {
+              "gameplay_rules": {
+                "contains": {
+                  "type": "object",
+                  "required": ["trigger_role", "action"],
+                  "properties": {
+                    "action": { "const": "award_points" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

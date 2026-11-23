@@ -1,0 +1,38 @@
+{
+  "description": "Only output and timings can be collected.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "playtest.request",
+        "playtest_id": "p-1",
+        "duration_limit_s": 5,
+        "collect": [
+          "screenshot"
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/work",
+    "keyword": "oneOf",
+    "inner": {
+      "schema": "messages/playtest.request.json",
+      "instance": "/payload/work",
+      "path": "/collect/0",
+      "keyword": "enum"
+    }
+  }
+}

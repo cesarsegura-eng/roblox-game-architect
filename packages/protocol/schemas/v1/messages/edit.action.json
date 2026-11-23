@@ -1,0 +1,517 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.invalid/roblox-game-architect/protocol/v1/messages/edit.action.json",
+  "description": "Work item: one validated, approved change, delivered in a work.poll response. The property allowlist is this file's set_property_* definitions and nothing else.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "edit.action"
+    },
+    "action_id": {
+      "$ref": "../common.json#/$defs/id"
+    },
+    "declared_scope": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "../common.json#/$defs/scope_entry"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    }
+  },
+  "required": [
+    "type",
+    "action_id",
+    "declared_scope",
+    "operations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "create_instance": {
+      "description": "Creates an instance. Never carries source. Script and LocalScript are created disabled by the plugin (ADR-0008).",
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "create_instance"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "parent": {
+          "$ref": "../common.json#/$defs/instance_ref"
+        },
+        "name": {
+          "$ref": "../common.json#/$defs/segment"
+        },
+        "class_name": {
+          "$ref": "../common.json#/$defs/creatable_class"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "parent",
+        "name",
+        "class_name"
+      ],
+      "additionalProperties": false
+    },
+    "set_script_source": {
+      "description": "Replaces the whole source. Applied with ScriptEditorService:UpdateSourceAsync.",
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_script_source"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/script_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 100000
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "reparent": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "reparent"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "$ref": "../common.json#/$defs/instance_ref"
+        },
+        "new_parent": {
+          "$ref": "../common.json#/$defs/instance_ref"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "new_parent"
+      ],
+      "additionalProperties": false
+    },
+    "delete_instance": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "delete_instance"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "$ref": "../common.json#/$defs/instance_ref"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Anchored": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Anchored"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_CanCollide": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "CanCollide"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Transparency": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Transparency"
+        },
+        "value": {
+          "$ref": "../common.json#/$defs/unit_interval"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Size": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Size"
+        },
+        "value": {
+          "$ref": "../common.json#/$defs/vector3_size"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Position": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Position"
+        },
+        "value": {
+          "$ref": "../common.json#/$defs/vector3_position"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Orientation": {
+      "type": "object",
+      "properties": {
+        "op": { "type": "string", "const": "set_property" },
+        "op_id": { "$ref": "../common.json#/$defs/id" },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": { "$ref": "../common.json#/$defs/path" },
+            "expect_class": { "$ref": "../common.json#/$defs/part_class" }
+          },
+          "required": ["path", "expect_class"],
+          "additionalProperties": false
+        },
+        "property": { "type": "string", "const": "Orientation" },
+        "value": { "$ref": "../common.json#/$defs/vector3_orientation" }
+      },
+      "required": ["op", "op_id", "target", "property", "value"],
+      "additionalProperties": false
+    },
+    "set_property_Color": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Color"
+        },
+        "value": {
+          "$ref": "../common.json#/$defs/color3"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "set_property_Material": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "const": "set_property"
+        },
+        "op_id": {
+          "$ref": "../common.json#/$defs/id"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "../common.json#/$defs/path"
+            },
+            "expect_class": {
+              "$ref": "../common.json#/$defs/part_class"
+            }
+          },
+          "required": [
+            "path",
+            "expect_class"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "string",
+          "const": "Material"
+        },
+        "value": {
+          "$ref": "../common.json#/$defs/material"
+        }
+      },
+      "required": [
+        "op",
+        "op_id",
+        "target",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "operation": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/create_instance"
+        },
+        {
+          "$ref": "#/$defs/set_script_source"
+        },
+        {
+          "$ref": "#/$defs/reparent"
+        },
+        {
+          "$ref": "#/$defs/delete_instance"
+        },
+        {
+          "$ref": "#/$defs/set_property_Anchored"
+        },
+        {
+          "$ref": "#/$defs/set_property_CanCollide"
+        },
+        {
+          "$ref": "#/$defs/set_property_Transparency"
+        },
+        {
+          "$ref": "#/$defs/set_property_Size"
+        },
+        {
+          "$ref": "#/$defs/set_property_Position"
+        },
+        {
+          "$ref": "#/$defs/set_property_Orientation"
+        },
+        {
+          "$ref": "#/$defs/set_property_Color"
+        },
+        {
+          "$ref": "#/$defs/set_property_Material"
+        }
+      ]
+    }
+  }
+}

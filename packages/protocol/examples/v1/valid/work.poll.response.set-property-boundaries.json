@@ -1,0 +1,118 @@
+{
+  "description": "Every numeric bound, exactly at its limit.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "response",
+    "type": "work.poll",
+    "message_id": "m-0101",
+    "correlation_id": "m-0100",
+    "session_id": "s-0001",
+    "status": "ok",
+    "sent_at": 1730000000100,
+    "payload": {
+      "work": {
+        "type": "edit.action",
+        "action_id": "a-0001",
+        "declared_scope": [
+          {
+            "path": [
+              "Workspace",
+              "Map"
+            ],
+            "extent": "subtree"
+          }
+        ],
+        "operations": [
+          {
+            "op": "set_property",
+            "op_id": "o1",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Transparency",
+            "value": 0
+          },
+          {
+            "op": "set_property",
+            "op_id": "o2",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Transparency",
+            "value": 1
+          },
+          {
+            "op": "set_property",
+            "op_id": "o3",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Size",
+            "value": {
+              "x": 0.05,
+              "y": 2048,
+              "z": 0.05
+            }
+          },
+          {
+            "op": "set_property",
+            "op_id": "o4",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Position",
+            "value": {
+              "x": -100000,
+              "y": 100000,
+              "z": 0
+            }
+          },
+          {
+            "op": "set_property",
+            "op_id": "o5",
+            "target": {
+              "path": [
+                "Workspace",
+                "Map",
+                "Block"
+              ],
+              "expect_class": "Part"
+            },
+            "property": "Color",
+            "value": {
+              "r": 0,
+              "g": 1,
+              "b": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

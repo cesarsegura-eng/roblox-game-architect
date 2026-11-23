@@ -1,0 +1,37 @@
+{
+  "description": "reason is session_start or after_action.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "project.state",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {
+      "snapshot_id": "s1",
+      "reason": "periodic",
+      "roots": [
+        "Workspace"
+      ],
+      "complete_depth": 2,
+      "truncated": false,
+      "entries": [
+        {
+          "path": [
+            "Workspace"
+          ],
+          "class_name": "Workspace"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": false,
+    "stage": "payload",
+    "path": "/payload/reason",
+    "keyword": "enum"
+  }
+}

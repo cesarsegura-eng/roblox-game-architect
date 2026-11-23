@@ -1,0 +1,20 @@
+{
+  "description": "edit.action is a work item, never an envelope type.",
+  "message": {
+    "protocol_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "kind": "request",
+    "type": "edit.action",
+    "message_id": "m-0100",
+    "session_id": "s-0001",
+    "sent_at": 1730000000000,
+    "payload": {}
+  },
+  "expect": {
+    "valid": false,
+    "stage": "dispatch",
+    "path": "/type"
+  }
+}

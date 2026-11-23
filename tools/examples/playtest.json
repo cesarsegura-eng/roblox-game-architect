@@ -1,0 +1,8 @@
+{
+  "type": "playtest.request",
+  "playtest_id": "p-0001",
+  "duration_limit_s": 10,
+  "collect": [
+    "output"
+  ]
+}
