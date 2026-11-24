@@ -51,6 +51,20 @@ a dedicated test universe and place.
       users configure the service. **Proof:** reviewable public URLs and a tested
       plugin install from the published marketplace revision.
 
+### What is blocked, and on what
+
+Checked on 2026-11-23 against `main` (`849cfec`). Each of these is waiting on a
+resource this checkout cannot supply, not on code:
+
+| Leg of the vertical slice | Blocked on | How it was checked |
+|---|---|---|
+| A real-provider run end to end | an API key. `ANTHROPIC_API_KEY`, `LLM_API_KEY`, `LLM_PROVIDER` and `LLM_MODEL_ID` are all unset and there is no `.env` | read the process environment; the key itself was never used |
+| A hosted MCP deployment | a host. `docker` is not installed on this machine, so only CI builds and smoke-tests the images | `docker --version` not found |
+| Roblox Studio behaviour | a running Studio. No instance is connected | the Studio tool lists zero instances |
+
+What does run here, and did on that commit: the nine offline FakeProvider cases
+at $0 spend, and a place build producing the rainforest `rule_game` artifact.
+
 ### Reproducing the local checks
 
 Rokit's shims fail from some shells (`The system cannot find the path specified (os
