@@ -116,6 +116,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `gitleaks/gitleaks-action` moves from v2 to v3.0.0. The release notes record no
+  change to inputs, outputs or behaviour: v3 only moves the action's runtime from
+  Node 20 to Node 24. That is the reason to take it — the current green runs
+  already carry `Node.js 20 is deprecated ... being forced to run on Node.js 24`
+  for this action, so v2 works only while the runner keeps forcing it. The pin
+  stays a commit SHA with the version in a comment, because this action reads the
+  full history.
+
 - When the pinned Lute binary cannot run, the error now carries its exit code and
   names the usual cause: a Rokit shim fails this way when `ROKIT_ROOT` does not
   point at the toolchain directory. Without it the suite reports 18 confusing
